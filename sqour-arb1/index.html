@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ar" hreflang="ar-sa" style="height: 100%;"><head>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="google" value="notranslate" />
+    <meta property="og:title" content="لوحة التحكم" />
+    <meta property="og:image" content="/site/sqour-arb.comlogo.gif?v=1790555620716" />
+    <link rel="icon" type="image/x-icon" href="sqour-arb.com/site/sqour-arb.comlogo.gif" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="user-scalable=0, width=400" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="googlebot" content="noindex, nofollow" />
+    
+
+<script>
+    window.chatMode = "advanced";
+
+    window.__APP_MODE__ = "advanced";
+    window.IS_V3 = false;
+    window.MODE = window.__APP_MODE__ || 'basic';
+
+    window.V3KEY_OK = Number(1);
+
+    const MODE = window.MODE;
+    const IS_V3 = window.IS_V3;
+
+    const IS_BASIC = (MODE === 'basic');
+    const IS_ADV = (MODE === 'advanced');
+
+    const IS_V3True = (IS_V3 === true);
+    const IS_V3False = (IS_V3 === false);
+
+    const USE_OLD = IS_BASIC || (IS_ADV &amp;&amp; IS_V3False);
+</script>
+<title>لوحة التحكم </title>
+
+<script src="sqour-arb.com/xB-cp.js"></script>
+<script src="sqour-arb.com/js/thReconnectOverlayUi.js"></script>
+<script src="sqour-arb.com/js/thSocketReconnectCore.js"></script>
+<script src="sqour-arb.com/js/thSocketReconnectCpAdapter.js"></script>
+<script src="sqour-arb.com/js/cp-socket.js"></script>
+
+<script>
+    window.TH_DATATABLE_SRC = "DataTable.js?v=Tiger_Host_LTD_1790187918818-TH20260901S72";
+    window.TH_DEFERRED_SRC = "c-deferred.js?v=Tiger_Host_LTD_1790187918818-TH20260908BOTOS72";
+    $(document).ready(function()
+    {
+        Load_Socket()
+    });
+
+</script>
+<script src="sqour-arb.com/js/c.js"></script>
+<script defer="" src="sqour-arb.com/DataTable.js" data-th-bundle="datatable"></script>
+<script defer="" src="sqour-arb.com/js/c-deferred.js" data-th-bundle="deferred"></script>
+<script src="cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+<style>:root{--cp-btcolor:#0a0a09;--cp-bgcolor:#9f9b97;--cp-hicolor:#fafcf2;}
+html, body, a, button {
+    touch-action: manipulation;
+}
+.th-power-lock-btn{padding:4px 8px!important;height:30px;line-height:1.2;font-size:13px;border-radius:5px;min-width:30px;}
+.th-power-lock-btn.th-power-lock-open:before,.th-power-lock-btn.fa-unlock:before{content:"\f09c";}
+.th-power-lock-btn.th-power-lock-closed:before,.th-power-lock-btn.fa-lock:before{content:"\f023";}
+.th-power-lock-btn.th-power-lock-open{color:#27ae60;}
+.th-power-lock-btn.th-power-lock-closed{color:#c0392b;}
+.th-power-lock-btn.is-readonly{opacity:.55;cursor:default;}
+.th-power-lock-btn.th-power-lock-pending{opacity:.45;}
+.thBotTalkHint { font-size: 12px !important; } .thBotsPanel { max-width: 310px!important;}.thBotTalkRow&gt;span { font-size: 13px !important; }
+.thBotTalkRow select, .thBotTalkRow input[type=number] { font-size: 13px !important; }
+</style>
+<link rel="stylesheet" href="sqour-arb.com/css/cp.css" />
+<link rel="stylesheet" href="sqour-arb.com/css/thReconnectOverlay.css" />
+
+</head>
+
+<body>
+    <div class="paneladmin">
+        <button onclick="location.reload()" style="position:fixed;right: 0;z-index:555;font-size: 15px !important;" class="btn btn-success fa fa-refresh"></button>
+        <div>
+            <div class="column cl1">
+                <ul class="side-menu nav nav-pills nav-stacked">
+                    <li class="logsad hid" style="display: list-item;"><a onclick="SocketClickCp('SEND_ADMIN_LOGS', 100 , Tokens);">السجل</a>
+                    </li>
+                    <li class="statead hid" style="display: list-item;"><a onclick="SocketClickCp('SEND_ADMIN_STATS_TIGERHOST', 100, Tokens);">الحالات</a>
+                    </li>
+                    <li class="logsad hid" style="display: list-item;"><a onclick="SocketClickCp('SEND_ADMIN_BANNED_LOGS', 100, Tokens);">المحظورون</a>
+                    </li>
+                    <li class="verifad hid" style="display: list-item;"><a onclick="VerifiedClicked()">الموثوقون</a>
+                    </li>
+                    <li class="userad hid" style="display: list-item;"><a onclick="SocketClickCp('SEND_ADMIN_USERS', 100, Tokens);">الأعضاء</a>
+                    </li>
+                    <li class="bandad hid" style="display: list-item;"><a onclick="SocketClickCp('SEND_ADMIN_BANS', 5000, Tokens)">الحظر</a></li>
+                    <li class="powerad hid" style="display: list-item;"><a onclick="SocketClickCp('SEND_ADMIN_POWERS', 1, Tokens)">الصلاحيات</a>
+                    </li>
+                    <li class="filterad hid" style="display: list-item;"><a onclick="SocketClickCp('SEND_ADMIN_FILTER', 500, Tokens)">فلتر</a></li>
+                    <li class="roomsad hid" style="display: list-item;"><a onclick="SocketClickCp('SEND_ADMIN_ROOMS', currentLimit, Tokens)">الغرف</a></li>
+                    <li class="shrtad hid" style="display: list-item;"><a onclick="SocketClickCp('SEND_ADMIN_SHORT', 500, Tokens)">الإختصارات</a>
+                    </li>
+                    <li class="subsad hid" style="display: list-item;"><a onclick="SocketClickCp('SEND_ADMIN_SUBS', 5000, Tokens)">الإشتراكات</a>
+                    </li>
+                    <li class="msgsad hid" style="display: list-item;"><a onclick="SocketClickCp('SEND_ADMIN_MESSAGES_TIGERHOST', 500, Tokens)">الرسائل</a></li>
+                    <li class="WaitingRoomSettings hid" style="display: list-item;"><a onclick="WaitingRoomClicked()" style="width: 95px;">غرفة الانتظار</a></li>
+                    <li class="SettingsFront hid" style="display: list-item;"><a onclick="SettingsFront()">الواجهة</a></li>
+                    <li class="SettingsCpPages hid" style="display: list-item;"><a onclick="SettingsCpPages()">الصفحات</a></li>
+                    <li class="SymbolsSettings hid" style="display: list-item;"><a onclick="SymbolsClicked()">الرموز</a></li>
+                    <li class="StatsSettings hid" style="display: list-item;"><a onclick="StatsClicked()">الإحصائيات</a></li>
+                    <li class="stateadR hid" style="display: list-item;"><a onclick="SocketClickCp('SEND_ADMIN_REPORT_TIGERHOST', 30 , Tokens)">التحكم</a></li>
+                    <li class="otherad hid" style="display: list-item;"><a onclick="SettingsHost()">النطاقات</a></li>
+                    <li class="ownad hid" style="display: list-item;"><a onclick="SettingsClicked()" style="width: 95px;">ادارة الموقع</a></li>
+                    <li class="BotsSettings ownad1 hid" style="display: list-item;"><a onclick="BotsClicked()">Bots</a></li>
+                </ul>
+            </div>
+            <div class="column cl2">
+                
+                <div class="Panellogs" style="display:none;top: 0; position: absolute;">
+                        <div style="display: flex;">
+                            <button id="previousLogs" class="fa fa-arrow-left btn btn-primary" style="width: 60px; background:#758685!important;" onclick="navigateLogs('back')">0</button>
+                            <button id="nextLogs" class="fa fa-arrow-right btn btn-primary" style="width: 60px; text-align: end; margin-left: 2px;" onclick="navigateLogs('forward')">100</button>
+                            <input class="search_logs" autocomplete="off" placeholder="البحث" value="" style="margin-left: 4px;margin-top: 3px;border: 1px solid;padding: 0;height: 25px;padding-left: 8px;" />
+                        </div>
+                    <table id="logsPage" class="cell-border hover order-column">
+                        <thead>
+                            <tr>
+                                <th>الحاله</th>
+                                <th>العضو</th>
+                                <th>الزخرفه</th>
+                                <th>الأي بي</th>
+                                <th>الدولة</th>
+                                <th>الجهاز</th>
+                                <th>الوقت</th>
+                                <th>الدعوة</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div class="Panelstate" style="display:none">
+                    <div style="display: flex;">
+                        <button id="previousStat" class="fa fa-arrow-left btn btn-primary" style="width: 60px; background:#758685!important;" onclick="navigateStats('back')">0</button>
+                        <button id="nextstat" class="fa fa-arrow-right btn btn-primary" style="width: 60px; text-align: end; margin-left: 2px;" onclick="navigateStats('forward')">100</button>
+                        <input class="search_stat" autocomplete="off" placeholder="البحث" value="" style="margin-left: 4px;margin-top: 3px;border: 1px solid;padding: 0;height: 25px;padding-left: 8px;" />
+                    </div>
+                    <table id="statePage" class="cell-border hover order-column">
+                        <thead>
+                            <tr>
+                                <th>الحاله</th>
+                                <th>العضو</th>
+                                <th>العضو الثاني</th>
+                                <th>الغرفة</th>
+                                <th>الاي بي</th>
+                                <th>الوقت</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div class="PanelBannedLogs" style="display:none;top: 0; position: absolute;">
+        <div style="display: flex;">
+            <button id="previousBannedLogs" class="fa fa-arrow-left btn btn-primary" style="width: 60px; background:#758685!important;" onclick="navigateBannedLogs('back')">0</button>
+            <button id="nextBannedLogs" class="fa fa-arrow-right btn btn-primary" style="width: 60px; text-align: end; margin-left: 2px;" onclick="navigateBannedLogs('forward')">100</button>
+            <input class="search_banned_logs" autocomplete="off" placeholder="البحث في المحظورين" value="" style="margin-left: 4px;margin-top: 3px;border: 1px solid;padding: 0;height: 25px;padding-left: 8px;" />
+        </div>
+    <table id="bannedLogsPage" class="cell-border hover order-column">
+        <thead>
+            <tr>
+                <th>الحاله</th>
+                <th>العضو</th>
+                <th>الزخرفه</th>
+                <th>الأي بي</th>
+                <th>الدولة</th>
+                <th>الجهاز</th>
+                <th>الوقت</th>
+                <th>الدعوة</th>
+                <th></th>
+            </tr>
+        </thead>
+    </table>
+</div>
+                <div id="thPanelstateRMount" data-is-adv="1"></div>
+                <div class="VerifiedLogs" style="display:none">
+                    <div style="display: flex;" class="thVerifiedPager">
+                        <button id="previousVerified" class="fa fa-arrow-left btn btn-primary" style="width: 60px; background:#758685!important;" onclick="navigateVerified(0)">0</button>
+                        <button id="nextVerified" class="fa fa-arrow-right btn btn-primary" style="width: 60px; text-align: end; margin-left: 2px;" onclick="navigateVerified(1)">200</button>
+                        <input class="search_verified" autocomplete="off" placeholder="البحث" value="" style="margin-left: 4px;margin-top: 3px;border: 1px solid;padding: 0;height: 25px;padding-left: 8px;" />
+                    </div>
+                    <table id="verifiedPage" class="cell-border hover order-column">
+                        <thead>
+                            <tr>
+                                <th>العضوية</th>
+                                <th>الزخرفه</th>
+                                <th>الصلاحية</th>
+                                <th>الجهاز</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div class="UsersLogs" style="display:none">
+                    <div style="display: flex;">
+                        <button id="previoususer" class="fa fa-arrow-left btn btn-primary" style="width: 60px; background:#758685!important;" onclick="navigateUsers('back')">0</button>
+                        <button id="nextuser" class="fa fa-arrow-right btn btn-primary" style="width: 60px; text-align: end; margin-left: 2px;" onclick="navigateUsers('forward')">200</button>
+                        <input class="search_user" autocomplete="off" placeholder="البحث" value="" style="margin-left: 4px;margin-top: 3px;border: 1px solid;padding: 0;height: 25px;padding-left: 8px;" />
+                    </div>
+                    <details class="uc-cleaner-card" dir="rtl">
+                        <summary class="uc-summary">
+                            <span class="uc-title"> حذف العضويات التي لم تسجل دخول <i class="fa fa-trash" style="margin-right: 7px; font-weight: 300!important;"></i></span>
+                            <span class="uc-sub">اضغط لعرض الخيارات</span>
+                        </summary>
+                        <div class="uc-content">
+                            <div class="uc-row">
+                                <label class="uc-label">المدة:</label>
+                                <select id="purgeRange" class="uc-select">
+                                    <option value="m:1">1 شهر</option>
+                                    <option value="d:45">1 شهر ونصف</option>
+                                    <option value="m:2">2 شهر</option>
+                                    <option value="m:3">3 شهر</option>
+                                    <option value="m:5">5 شهر</option>
+                                    <option value="m:6" selected="">6 شهر</option>
+                                    <option value="y:1">1 سنة</option>
+                                </select>
+                            </div>
+                            <div class="uc-actions">
+                                <button id="btnPurgePreview" class="uc-btn uc-btn-outline">
+                                    <i class="fa fa-eye"></i> معاينة </button>
+                                <button id="btnPurgeExecute" class="uc-btn uc-btn-danger">
+                                    <i class="fa fa-trash"></i> حذف </button>
+                            </div>
+                            <div id="purgeResult" class="uc-result" style="display:none;">—</div>
+                        </div>
+                    </details>
+                    <table id="usersPage" class="cell-border hover order-column">
+                        <thead>
+                            <tr>
+                                <th>العضو</th>
+                                <th>الزخرفه</th>
+                                <th>الاي بي</th>
+                                <th>الجهاز</th>
+                                <th>الصلاحية</th>
+                                <th>أخر تواجد</th>
+                                <th>التسجيل</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div id="thGustsLogsMount"></div>
+                <div class="BotsLogs" style="display:none">
+                    <table id="botsPage">
+                        <thead>
+                            <tr>
+                                <th>الصوره</th>
+                                <th>الأسم</th>
+                                <th>الصلاحية</th>
+                                <th>الدولة</th>
+                                <th>الغرفة</th>
+                                <th>الاي بي</th>
+                                <th>الحاله</th>
+                                <th>رسائل</th>
+                                <th>د/خ</th>
+                                <th>حذف</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div class="BansLogs" style="display:none">
+                    <div class="thAllowUaBox" style="display:none">
+                        <div class="thAllowUaTitle">السماح بدخول المتصفحات والأنظمة</div>
+                        <div class="thAllowUaSec">المتصفحات</div>
+                        <div class="thAllowUaGrid">
+                            <label><input type="checkbox" data-allow-kind="browser" value="chrome" /><span class="thAllowUaIco th-ico-chrome"></span><span>Chrome</span></label>
+                            <label><input type="checkbox" data-allow-kind="browser" value="safari" /><span class="thAllowUaIco th-ico-safari"></span><span>Safari</span></label>
+                            <label><input type="checkbox" data-allow-kind="browser" value="edge" /><span class="thAllowUaIco th-ico-edge"></span><span>Edge</span></label>
+                            <label><input type="checkbox" data-allow-kind="browser" value="firefox" /><span class="thAllowUaIco th-ico-firefox"></span><span>Firefox</span></label>
+                            <label><input type="checkbox" data-allow-kind="browser" value="samsung" /><span class="thAllowUaIco th-ico-samsung"></span><span>Samsung</span></label>
+                            <label><input type="checkbox" data-allow-kind="browser" value="opera" /><span class="thAllowUaIco th-ico-opera"></span><span>Opera</span></label>
+                            <label><input type="checkbox" data-allow-kind="browser" value="brave" /><span class="thAllowUaIco th-ico-brave"></span><span>Brave</span></label>
+                            <label><input type="checkbox" data-allow-kind="browser" value="vivaldi" /><span class="thAllowUaIco th-ico-vivaldi"></span><span>Vivaldi</span></label>
+                        </div>
+                        <div class="thAllowUaSec">الأنظمة</div>
+                        <div class="thAllowUaGrid">
+                            <label><input type="checkbox" data-allow-kind="os" value="android" /><span class="thAllowUaIco th-ico-android"></span><span>Android</span></label>
+                            <label><input type="checkbox" data-allow-kind="os" value="ios" /><span class="thAllowUaIco th-ico-ios"></span><span>iOS</span></label>
+                            <label><input type="checkbox" data-allow-kind="os" value="ipados" /><span class="thAllowUaIco th-ico-ipados"></span><span>iPadOS</span></label>
+                            <label><input type="checkbox" data-allow-kind="os" value="windows" /><span class="thAllowUaIco th-ico-windows"></span><span>Windows</span></label>
+                            <label><input type="checkbox" data-allow-kind="os" value="macos" /><span class="thAllowUaIco th-ico-macos"></span><span>macOS</span></label>
+                            <label><input type="checkbox" data-allow-kind="os" value="linux" /><span class="thAllowUaIco th-ico-linux"></span><span>Linux</span></label>
+                            <label><input type="checkbox" data-allow-kind="os" value="chromeos" /><span class="thAllowUaIco th-ico-cros"></span><span>ChromeOS</span></label>
+                            <label><input type="checkbox" data-allow-kind="os" value="harmonyos" /><span class="thAllowUaIco th-ico-harmony"></span><span>HarmonyOS</span></label>
+                        </div>
+                        <label class="btn btn-danger label fa fa-save border thAllowUaSave" onclick="saveAllowUa()">حفظ</label>
+                    </div>
+                    <div class="thBlockFpBox" style="display:none">
+                        <div class="thBlockFpTitle">حظر البصمات المشكوك بها (اختياري)</div>
+                        <div class="thBlockFpGrid">
+                            <label><input type="checkbox" data-block-fp="empty" value="empty" /><span class="thBlockFpIco th-ico-fp-empty"></span><span>حظر البيانات الناقصة</span></label>
+                            <label><input type="checkbox" data-block-fp="invalid" value="invalid" /><span class="thBlockFpIco th-ico-fp-invalid"></span><span>حظر البيانات غير الصحيحة</span></label>
+                            <label><input type="checkbox" data-block-fp="suspect" value="suspect" /><span class="thBlockFpIco th-ico-fp-suspect"></span><span>حظر التلاعب بالجهاز</span></label>
+                        </div>
+                        <label class="btn btn-danger label fa fa-save border thBlockFpSave" onclick="saveBlockFp()">حفظ</label>
+                    </div>
+                    <div style="display: flex;" class="thBansPager">
+                        <button id="previousBans" class="fa fa-arrow-left btn btn-primary" style="width: 60px; background:#758685!important;" onclick="navigateBans(0)">0</button>
+                        <button id="nextBans" class="fa fa-arrow-right btn btn-primary" style="width: 60px; text-align: end; margin-left: 2px;" onclick="navigateBans(1)">200</button>
+                        <input class="search_bans" autocomplete="off" placeholder="البحث" value="" style="margin-left: 4px;margin-top: 3px;border: 1px solid;padding: 0;height: 25px;padding-left: 8px;" />
+                    </div>
+                    <div class="thBansTools">
+                        <div class="thClearAllBansRow">
+                            <button type="button" class="thClearAllBans btn btn-warning" onclick="if(confirm('هل تريد فك جميع المحظورين؟')){x_x.emit('PANEL_CHAT_CP',{cmd:'SEND_ADMIN_BANS_CLEAR_ALL',limit: 100000,token:Tokens});}"><i class="fa fa-unlock"></i> فك جميع المحظورين</button>
+                        </div>
+                        <div class="thBansInputRow">
+                            <input class="baninput" type="text" placeholder="حظر جهاز/اي بي/ دولة / حساب" style="margin-left: 5px;" />
+                            <button class="bandnow btn btn-danger">حظر</button>
+                            <button class="delBand btn btn-success">سماح</button>
+                        </div>
+                    </div>
+                    <table id="bansPage" class="cell-border hover order-column">
+                        <thead>
+                            <tr>
+                                <th>العضو</th>
+                                <th>من قبل</th>
+                                <th>السبب</th>
+                                <th>الجهاز</th>
+                                <th>الاي بي</th>
+                                <th>الحساب</th>
+                                <th>الدولة</th>
+                                <th>تاريخ الإنتهاء</th>
+                                <th>تاريخ الحظر</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div class="MessageLogs" style="display:none">
+                    <div id="msgs">
+                        <input class="msgt" placeholder="عنوان الرساله" />
+                        <br />
+                        <textarea class="msgm" style="width: 200px;margin-top: 1px;" placeholder="الرساله" maxlength="250"></textarea>
+                        <br /><button style="margin:5px;width:auto;" onclick="msgsit('w',$('.msgt').val(),$('.msgm').val());" class="fa fa-check btn btn-success">إضافه ألى رسائل الترحيب</button>
+                        <br /><button style="margin:5px;width:auto;" onclick="msgsit('d',$('.msgt').val(),$('.msgm').val());" class="fa fa-check btn btn-danger">إضافه ألى الرسائل اليوميه</button>
+                    </div>
+                    <table id="messagePage" class="cell-border hover order-column" style="width: max-content;">
+                        <thead>
+                            <tr>
+                                <th>التصنيف</th>
+                                <th>العنوان</th>
+                                <th>الرساله</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div class="ShortLogs" style="display:none">
+                    <div id="shrt">
+                        <input style="margin: 4px;" class="shrtname" placeholder="الإختصار \ س1" />
+                        <br /><input style="margin: 4px;" class="shrtvalue" placeholder="الزخرفه \ السلام عليكم" />
+                        <br /><button style="margin:5px;width:200px;" onclick="shrtadd();" class="fa fa-check btn btn-success">إضافه</button>
+                        <br />
+                    </div>
+                    <table id="shortPage" class="cell-border hover order-column">
+                        <thead>
+                            <tr>
+                                <th>الإختصار</th>
+                                <th>الزخرفه</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div class="SubsLogs" style="display:none">
+                    <div style="display: flex;" class="thSubsPager">
+                        <button id="previousSubs" class="fa fa-arrow-left btn btn-primary" style="width: 60px; background:#758685!important;" onclick="navigateSubs(0)">0</button>
+                        <button id="nextSubs" class="fa fa-arrow-right btn btn-primary" style="width: 60px; text-align: end; margin-left: 2px;" onclick="navigateSubs(1)">200</button>
+                        <input class="search_subs" autocomplete="off" placeholder="البحث" value="" style="margin-left: 4px;margin-top: 3px;border: 1px solid;padding: 0;height: 25px;padding-left: 8px;" />
+                    </div>
+                    <table id="subsPage" class="cell-border hover order-column">
+                        <thead>
+                            <tr>
+                                <th>الإشتراك</th>
+                                <th>العضو</th>
+                                <th>الزخرفه</th>
+                                <th>تاريخ الإنتهاء</th>
+                                <th>الأيام المتبقية</th>
+                                <th>تاريخ الترقية</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div class="FilterLogs" style="display:none">
+                    <div id="fltr">
+                        <input class="fltrit" style="width: 195px;margin: 5px;" placeholder="اضافه كلمه\موقع" />
+                        <br /><button style="margin:5px;width:200px;" onclick="fltrit('amsgs',$('.fltrit').val());" class="fa fa-check btn btn-success">إضافه ألى الكلمات المسموحه</button>
+                        <br /><button style="margin:5px;width:195px;" onclick="fltrit('bmsgs',$('.fltrit').val());" class="fa fa-times btn btn-danger">إضافه ألى الكلمات الممنوعه</button>
+                        <br /><button style="margin:5px;width:195px;" onclick="fltrit('wmsgs',$('.fltrit').val());" class="fa fa-warning btn btn-info">إضافه ألى الكلمات المراقبه</button>
+                        <div class="thFltredBox">
+                            <div class="thFltredHead">
+                                <span class="thFltredTitle">آخر الكلمات الممنوعه</span>
+                                <button type="button" class="thFltredToggle" onclick="TH_TOGGLE_FLTRED_SIZE()" title="تكبير / تصغير" aria-label="تكبير / تصغير">
+                                    <i class="fa fa-expand"></i>
+                                </button>
+                            </div>
+                            <div style="display: flex;" class="thFilterPager">
+                                <button id="previousFilter" class="fa fa-arrow-left btn btn-primary" style="width: 60px; background:#758685!important;" onclick="navigateFilter(0)">0</button>
+                                <button id="nextFilter" class="fa fa-arrow-right btn btn-primary" style="width: 60px; text-align: end; margin-left: 2px;" onclick="navigateFilter(1)">200</button>
+                                <input class="search_filter" autocomplete="off" placeholder="البحث" value="" style="margin-left: 4px;margin-top: 3px;border: 1px solid;padding: 0;height: 25px;padding-left: 8px;" />
+                            </div>
+                            <div id="fltred" class="break thFltredBody"></div>
+                        </div>
+                    </div>
+                    <table id="filterPage" style="left: 0;" class="cell-border hover order-column">
+                        <thead>
+                            <tr>
+                                <th>التصنيف</th>
+                                <th>الكلمه</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div class="RoomsLogs" style="display:none">
+                    <table id="roomsPage" class="cell-border hover order-column">
+                        <thead>
+                            <tr style="background-color: rgb(255, 250, 250);">
+                                <th class="border header">الغرفة</th>
+                                <th class="border header">صاحب الغرفة</th>
+                                <th class="border header">الإعدادات</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div class="th-powers-layout" style="display:none">
+                    <div class="PowersLogs">
+                        <div id="powers" class="th-powers-wrap">
+                            <div class="th-powers-search"></div>
+                            <div class="th-powers-toolbar">
+                                <select onchange="powerchange();" class="powerbox selbox form-control th-powers-select"></select>
+                                <button type="button" id="thPowerLockBtn" class="btn btn-default fa fa-unlock th-power-lock-btn" style="display:none;" title="قفل الصلاحية"></button>
+                                <button class="delp btn btn-danger fa fa-times th-powers-delete">حذف</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="th-powers-icons-panel">
+                        <div class="sico border th-powers-icons"></div>
+                    </div>
+                </div>
+                <div id="thSettingsLogsMount" data-is-adv="1" data-is-basic="0" data-is-v3false="1" data-is-v3true="0"></div>
+                <div id="thEmojiLogsMount"></div>
+                <div id="thOtherLogsMount" data-show-mic="1"></div>
+                <div id="thSettingsFrontBoxMount"></div>
+                <div id="thCpPagesBoxMount"></div>
+                <div id="thWaitingRoomLogsMount"></div>
+                <div id="thStatisticsLogsMount"></div>
+            </div>
+        </div>
+        <div class="modal" id="edituser" role="dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <span class="close-btn" onclick="$(this).parent().parent().parent().modal('hide');$('.reply').html('')">
+                            <i class="fa fa-times"></i>
+                        </span>
+                        <label class="modal-title">توثيق العضوية</label>
+                    </div>
+                    <div class="modal-body">
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">توثيق العضوية <input class="verification" type="checkbox" />
+                            </label>
+                        </div>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">دخول ملكي شباب <input class="loginG" type="checkbox" />
+                            </label>
+                        </div>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">دخول ملكي بنات <input class="loginGG" type="checkbox" />
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="verlog">حفظ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal" id="roomCp" role="dialog" style="z-index: 9999999999;">
+            <div class="modal-dialog">
+                <div class="modal-content" style="width: 310px;">
+                    <div style="color: white;" onclick="$(this).parent().parent().parent().modal('hide');" class="modal-header label-primary">
+                        <span class="pull-right clickable badge"><i class="fa fa-times"></i></span>
+                        <label style="margin: 1px;" class="mini fa fa-comments modal-title">إنشاء غرفه جديدة</label>
+                    </div>
+                    <div class="modal-body" style="padding: 1px;">
+                        <div class="break" style="background-color: #efefef; padding: 5px;">
+                            <input class="rtopic" style="width:200px;border-radius: 0px;border: 1px solid #b7b7b7;height: 30px;margin: 5px 0px 5px 0px;text-align: center;" type="text" placeholder="عنوان الغرفه" />
+                            <img class="picroom_cP lazyload" onclick="PIC_RooM_Cp('room')" style="position: absolute; width: 80px; height: 80px; top: 56px; border: 2px solid; right: 17px;" />
+                            <label onclick="picroom_cP()" style="position: absolute; width: 90px; height: 29px; top: 144px; right: 9px; border: 1px solid; text-align: center; padding: 4px;"> حذف الصورة</label>
+                            <input class="rabout" style="width:200px;width: 200px;border-radius: 0px;border: 1px solid #b7b7b7;height: 30px;margin: 0px 0px 5px 0px;text-align: center;" placeholder="الوصف" />
+                            <input class="rwelcome" style="width:200px;width: 200px;border-radius: 0px;border: 1px solid #b7b7b7;height: 30px;margin: 0px 0px 5px 0px;text-align: center;" type="text" placeholder="رساله الترحيب" />
+                            <input class="rlike" style="width:200px;width: 200px;border-radius: 0px;border: 1px solid #b7b7b7;height: 30px;margin: 0px 0px 5px 0px;text-align: center;" type="number" placeholder="عدد لايكات الدخول للغرفة" min="0" max="1000000000000" />
+                            <input class="rpwd th-room-pwd-mask" style="width:200px;width: 200px;border-radius: 0px;border: 1px solid #b7b7b7;height: 30px;margin: 0px 0px 5px 0px;text-align: center;" type="text" autocomplete="off" data-lpignore="true" data-form-type="other" placeholder="كلمه المرور" />
+                            <input class="rmax" style="width:200px;width: 200px;border-radius: 0px;border: 1px solid #b7b7b7;height: 30px;margin: 0px 0px 5px 0px;text-align: center;" type="number" placeholder="حجم الغرفه من 1 ألى 200" min="1" max="200" /><br />
+                            <input class="rmaxmic" style="width:200px;width: 200px;border-radius: 0px;border: 1px solid #b7b7b7;height: 30px;margin: 0px 0px 5px 0px;text-align: center;" type="number" placeholder="عدد المايكات " min="0" max="5" /><span style="margin-left: 10px;">عدد المايكات </span>
+                            <br />
+                            <label class="checkbox-inline">
+                                <input class="rdel" type="checkbox" value="" />تثبيت الغرفه</label>
+                            <br />
+                            <label class="checkbox-inline">
+                                <input class="broadcast" type="checkbox" value="" />تفعيل المايك</label>
+                            <br /> 
+
+                             
+                                <label class="checkbox-inline">
+                                <input class="bnrroom" type="checkbox" value="" />تفعيل البنر</label>
+                            <br />
+                            <label class="checkbox-inline">
+                                <input class="nouser" type="checkbox" value="" />تفعيل البث المباشر</label>
+                            <br /> 
+                             
+
+                            <button class="rmake btn btn-primary fl">
+                                <span class="fa fa-plus">(20)إنشاء الغرفه</span></button>
+                            <button class="SaveEditCp btn btn-primary fl">
+                                <span class="fa fa-edit">حفظ التعديلات</span>
+                            </button>
+                            <button class="rdelete btn btn-danger fr">
+                                <span class="fa fa-times">حذف</span></button>
+                            <div class="break border " id="ops" style="width: 100%; padding: 2px;"></div>
+                            <div class="break border corner" id="rbans" style="width:100%;padding:2px;margin-top:4px;">
+                                <span class="fl border" style="width:100%;"><button style="width:38px;" class="rbansx btn fr btn-danger fa fa-times" onclick="delBan()"></button>فك المحظورين</span>
+                                <div class="bans" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="thBotMovePicker" style="display:none;">
+            <div class="thBotMovePickerBox">
+                <div class="thBotMovePickerTitle">اختر نوع التنقل</div>
+                <button type="button" class="thBotMovePickerBtn" data-type="site"> خروج ودخول الى الموقع </button>
+                <button type="button" class="thBotMovePickerBtn" data-type="rooms"> تنقل بين الغرف </button>
+                <button type="button" class="thBotMovePickerClose" onclick="TH_CLOSE_BOT_MOVE_PICKER()"> إلغاء </button>
+            </div>
+        </div>
+        <div id="notC" class="hid">
+            <div onclick="$(this).remove();" style="min-height:50px;min-width:180px;padding:4px;max-width:260px;border:1px solid black;z-index:9999;background-color:#efefef;position:fixed;top:30%;margin-left:30px;" class="hand corner nosel">
+                <center>
+                    <div id="isfil" class=" border label label-primary" style="margin-top: -10px; padding-top: 10px; padding-left: 15px; width: 50%; padding-right: 15px;"> تنبيه</div>
+                </center>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="thCpActionModal" tabindex="-1" role="dialog" aria-labelledby="thCpActionModalTitle">
+        <div class="modal-dialog th-cp-action-dialog" role="document">
+            <div class="modal-content th-cp-action-content">
+                <div class="modal-header th-cp-action-header label-primary">
+                    <span class="th-cp-action-close" data-dismiss="modal" aria-label="Close"><i class="fa fa-times"></i></span>
+                    <label class="modal-title" id="thCpActionModalTitle"></label>
+                </div>
+                <div class="modal-body th-cp-action-body" id="thCpActionModalBody"></div>
+                <div class="modal-footer th-cp-action-footer">
+                    <button type="button" class="btn btn-default th-cp-action-cancel" data-dismiss="modal" id="thCpActionModalCancel">إلغاء</button>
+                    <button type="button" class="btn btn-primary th-cp-action-ok" id="thCpActionModalOk">تأكيد</button>
+                </div>
+            </div>
+        </div>
+    </div>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&amp;&amp;a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a49831f0996af9e5',t:'MTc5MTgzMDAyOA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&amp;&amp;(document.onreadystatechange=e,c())}}}})();</script><iframe height="1" width="1" style="position: absolute; top: 0px; left: 0px; border: none; visibility: hidden;"></iframe><script type="module" src="static.cloudflareinsights.com/beacon.min.js/v4bc70e2c01a94c73b74392e4234840661791215815920" integrity="sha512-L0ha0OXavK/8okipN9F8BtP84dg9DUhPERbBXzwI6dgTA55d2+yweo3pn5CSFYs45/r8md2+xvUPtTdvTNRfjA==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;b5792ac68c8e43439144ece536ecfadd&quot;,&quot;r&quot;:1,&quot;spa&quot;:2}" crossorigin="anonymous"></script>
+
+
+
+</body></html>
