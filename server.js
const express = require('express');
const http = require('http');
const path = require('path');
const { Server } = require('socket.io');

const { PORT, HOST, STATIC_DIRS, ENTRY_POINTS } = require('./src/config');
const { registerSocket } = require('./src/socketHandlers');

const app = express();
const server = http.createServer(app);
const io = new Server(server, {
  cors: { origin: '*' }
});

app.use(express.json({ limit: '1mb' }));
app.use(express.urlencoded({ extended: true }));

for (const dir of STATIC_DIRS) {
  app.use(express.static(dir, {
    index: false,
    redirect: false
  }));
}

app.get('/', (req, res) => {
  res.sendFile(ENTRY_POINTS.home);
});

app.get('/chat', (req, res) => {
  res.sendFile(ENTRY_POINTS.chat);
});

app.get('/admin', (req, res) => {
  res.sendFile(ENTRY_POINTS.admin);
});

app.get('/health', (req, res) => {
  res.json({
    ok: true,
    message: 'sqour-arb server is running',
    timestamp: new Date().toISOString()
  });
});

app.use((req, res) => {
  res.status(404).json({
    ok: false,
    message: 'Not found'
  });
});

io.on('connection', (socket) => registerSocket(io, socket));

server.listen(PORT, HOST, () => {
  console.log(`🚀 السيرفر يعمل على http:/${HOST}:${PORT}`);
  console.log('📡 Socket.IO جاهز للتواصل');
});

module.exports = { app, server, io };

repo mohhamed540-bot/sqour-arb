@@ -1,0 +1,198 @@
+const chatStore = require('./chatStore');
+const { DEFAULT_ROOM } = require('./config');
+
+function sanitizeText(value, fallback = '') {
+  if (typeof value !== 'string') return fallback;
+  return value.trim().slice(0, 200) || fallback;
+}
+
+function sanitizeColor(value, fallback = '#ffffff') {
+  if (typeof value !== 'string') return fallback;
+  const color = value.trim();
+  return /^#[0-9A-Fa-f]{3,8}$/.test(color) ? color : fallback;
+}
+
+function makeUser(socket, profile = {}) {
+  const safeName = sanitizeText(profile.topic || profile.name || 'حسان', 'حسان');
+  const safeRoom = sanitizeText(profile.room || DEFAULT_ROOM, DEFAULT_ROOM);
+  const safeColor = sanitizeColor(profile.ucol || profile.color || profile.col, '#ffff');
+
+  return {
+    id: socket.id,
+    name: safeName,
+    topic: safeName,
+    pic: profile.pic || '/pic/1790799452089.png.webp',
+    ico: profile.ico || '',
+    co: profile.co || 'ye',
+    room: safeRoom,
+    power: String(profile.power || '5'),
+    col: safeColor,
+    ucol: safeColor,
+    color: safeColor,
+    mcol: profile.mcol || '#1a1aff',
+    bg: profile.bg || '#FFFFFF'
+  };
+}
+
+function registerSocket(io, socket) {
+  const initialUser = makeUser(socket, {
+    room: DEFAULT_ROOM,
+    topic: 'حسان'
+  });
+
+  chatStore.setUser(socket.id, initialUser);
+  chatStore.addUserToRoom(initialUser.room, initialUser);
+  socket.data.user = initialUser;
+  socket.data.room = initialUser.room;
+  socket.join(initialUser.room);
+
+  socket.emit('system', {
+    type: 'welcome',
+    message: 'تم الاتصال بنجاح',
+    user: initialUser
+  });
+
+  io.to(initialUser.room).emit('presence', {
+    type: 'join',
+    room: initialUser.room,
+    users: chatStore.getRoomUsers(initialUser.room)
+  });
+
+  socket.on('join-room', (roomName) => {
+    const nextRoom = sanitizeText(roomName, DEFAULT_ROOM);
+
+    const previousRoom = socket.data.room || DEFAULT_ROOM;
+    if (previousRoom && previousRoom !== nextRoom) {
+      socket.leave(previousRoom);
+      chatStore.removeUserFromRoom(previousRoom, socket.id);
+    }
+
+    const user = chatStore.getUser(socket.id) || makeUser(socket, { room: nextRoom });
+    user.room = nextRoom;
+    user.name = sanitizeText(user.name || 'حسان', 'حسان');
+
+    socket.data.user = user;
+    socket.data.room = nextRoom;
+    chatStore.setUser(socket.id, user);
+    chatStore.addUserToRoom(nextRoom, user);
+    socket.join(nextRoom);
+
+    socket.emit('system', {
+      type: 'room-changed',
+      room: nextRoom,
+      message: `تمت الإضافة إلى الغرفة: ${nextRoom}`
+    });
+
+    io.to(nextRoom).emit('presence', {
+      type: 'join',
+      room: nextRoom,
+      users: chatStore.getRoomUsers(nextRoom)
+    });
+  });
+
+  socket.on('SEND_EVENT_EMIT_SERVER', (packet, callback) => {
+    try {
+      if (!packet || !packet.cmd) {
+        if (typeof callback === 'function') {
+          callback({ err: 1, status: 'error', msg: 'Invalid packet' });
+        }
+        return;
+      }
+
+      if (packet.cmd === 'WetchTop') {
+        const payload = {
+          cmd: 'WetchTop',
+          data: chatStore.getTopUsers(10)
+        };
+
+        if (typeof callback === 'function') {
+          callback(payload);
+          return;
+        }
+
+        socket.emit('SEND_EVENT_EMIT_SERVER', payload);
+        return;
+      }
+
+      const existingUser = chatStore.getUser(socket.id) || makeUser(socket, packet.data || {});
+      const profile = typeof packet.data === 'object' ? packet.data : {};
+      const finalUser = {
+        ...existingUser,
+        ...makeUser(socket, {
+          ...existingUser,
+          ...profile,
+          room: socket.data.room || existingUser.room || DEFAULT_ROOM
+        })
+      };
+
+      if (packet.cmd === 'SEND_EVENT_EMIT_PROFILE') {
+        finalUser.topic = sanitizeText(profile.topic || profile.name || finalUser.topic, finalUser.topic);
+        finalUser.name = finalUser.topic;
+        finalUser.color = sanitizeColor(profile.ucol || profile.color || profile.col || finalUser.color, finalUser.color);
+        finalUser.ucol = finalUser.color;
+        finalUser.col = finalUser.color;
+        finalUser.bg = sanitizeText(profile.bg || finalUser.bg, finalUser.bg);
+        finalUser.pic = sanitizeText(profile.pic || finalUser.pic, finalUser.pic);
+        finalUser.room = sanitizeText(profile.room || socket.data.room || finalUser.room, DEFAULT_ROOM);
+
+        chatStore.setUser(socket.id, finalUser);
+        socket.data.user = finalUser;
+        socket.data.room = finalUser.room;
+
+        if (finalUser.room && socket.rooms.has(finalUser.room) === false) {
+          socket.join(finalUser.room);
+        }
+
+        io.to(finalUser.room).emit('presence', {
+          type: 'profile-updated',
+          room: finalUser.room,
+          user: finalUser,
+          users: chatStore.getRoomUsers(finalUser.room)
+        });
+      }
+
+      const senderUser = chatStore.getUser(socket.id) || finalUser;
+      const roomToEmit = senderUser.room || socket.data.room || DEFAULT_ROOM;
+      const responsePacket = {
+        cmd: packet.cmd,
+        id: socket.id,
+        user: senderUser,
+        data: packet.data || {},
+        time: new Date().toLocaleTimeString('ar-SA')
+      };
+
+      if (typeof callback === 'function') {
+        callback({ err: 0, status: 'ok', msg: 'success' });
+      }
+
+      io.to(roomToEmit).emit('SEND_EVENT_EMIT_SERVER', responsePacket);
+      io.to(roomToEmit).emit('RECEIVE_EVENT', responsePacket);
+      io.to(roomToEmit).emit('message', responsePacket);
+    } catch (error) {
+      console.error('Socket event error:', error);
+      if (typeof callback === 'function') {
+        callback({ err: 1, status: 'error', msg: 'Internal server error' });
+      }
+    }
+  });
+
+  socket.on('disconnect', () => {
+    const currentUser = chatStore.getUser(socket.id);
+    const currentRoom = socket.data.room || currentUser?.room || DEFAULT_ROOM;
+
+    if (currentUser) {
+      chatStore.removeUserFromRoom(currentRoom, socket.id);
+      chatStore.deleteUser(socket.id);
+    }
+
+    io.to(currentRoom).emit('presence', {
+      type: 'leave',
+      room: currentRoom,
+      users: chatStore.getRoomUsers(currentRoom)
+    });
+
+    console.log('❌ [انقطع الاتصال]:', socket.id);
+  });
+}
+
+module.exports = { registerSocket, makeUser, sanitizeText, sanitizeColor };

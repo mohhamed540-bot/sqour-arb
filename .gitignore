@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Runtime
+.env
+.env.*
+!.env.example
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build/test artifacts
+coverage/
+.tmp/
+.cache/
