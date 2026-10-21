@@ -15,13 +15,31 @@ const {
   banUser,
   unbanUser,
   getAdminOverview,
-  isUserBanned
+  isUserBanned,
+  getUserProfile,
+  updateUserProfile,
+  editMessage,
+  deleteMessage,
+  toggleMessageReaction,
+  getMessageReactions,
+  getRoomMembers,
+  ensureRoomMember
 } = require('./db');
 
 function safeUser(user) {
   if (!user) return null;
   const { passwordHash, ...safe } = user;
-  return safe;
+  return {
+    ...safe,
+    profile: getUserProfile(user.id) || {
+      id: null,
+      userId: user.id,
+      bio: '',
+      avatar: user.avatar || '',
+      themeColor: user.themeColor || '#60a5fa',
+      updatedAt: new Date().toISOString()
+    }
+  };
 }
 
 function createApiRouter(io) {
@@ -74,8 +92,26 @@ function createApiRouter(io) {
     res.json({ ok: true, user: safeUser(req.user) });
   });
 
+  router.get('/users/me/profile', authRequired, (req, res) => {
+    res.json({ ok: true, profile: getUserProfile(req.user.id) });
+  });
+
+  router.patch('/users/me/profile', authRequired, (req, res) => {
+    try {
+      const profile = updateUserProfile(req.user.id, {
+        bio: req.body.bio,
+        avatar: req.body.avatar,
+        themeColor: req.body.themeColor
+      });
+      res.json({ ok: true, profile });
+    } catch (error) {
+      res.status(400).json({ ok: false, message: error.message || 'Profile update failed' });
+    }
+  });
+
   router.get('/users', authRequired, requireRole('admin'), (req, res) => {
-    res.json({ ok: true, users: getUsers().map(safeUser) });
+    const search = String(req.query.search || '');
+    res.json({ ok: true, users: getUsers(search).map(safeUser) });
   });
 
   router.get('/users/:userId', authRequired, (req, res) => {
@@ -125,7 +161,8 @@ function createApiRouter(io) {
   });
 
   router.get('/rooms', authRequired, (req, res) => {
-    res.json({ ok: true, rooms: getRooms() });
+    const search = String(req.query.search || '');
+    res.json({ ok: true, rooms: getRooms(search) });
   });
 
   router.post('/rooms', authRequired, (req, res) => {
@@ -134,7 +171,8 @@ function createApiRouter(io) {
         name: req.body.name,
         description: req.body.description || '',
         createdBy: req.user.id,
-        isPrivate: Boolean(req.body.isPrivate)
+        isPrivate: Boolean(req.body.isPrivate),
+        coverImage: req.body.coverImage || null
       });
       io.emit('room-created', room);
       res.status(201).json({ ok: true, room });
@@ -143,10 +181,24 @@ function createApiRouter(io) {
     }
   });
 
+  router.get('/rooms/:roomId/members', authRequired, (req, res) => {
+    const room = getRoomById(req.params.roomId);
+    if (!room) return res.status(404).json({ ok: false, message: 'Room not found' });
+    res.json({ ok: true, members: getRoomMembers(room.id) });
+  });
+
   router.get('/rooms/:roomId/messages', authRequired, (req, res) => {
     const room = getRoomById(req.params.roomId);
     if (!room) return res.status(404).json({ ok: false, message: 'Room not found' });
-    res.json({ ok: true, room, messages: getRoomMessages(room.id) });
+
+    const search = String(req.query.search || '');
+    const messages = getRoomMessages(room.id, search);
+    const normalized = messages.map((message) => ({
+      ...message,
+      reactions: getMessageReactions(message.id)
+    }));
+
+    res.json({ ok: true, room, messages: normalized });
   });
 
   router.post('/rooms/:roomId/messages', authRequired, (req, res) => {
@@ -156,19 +208,89 @@ function createApiRouter(io) {
     const text = sanitizeText(req.body.text || '', '');
     if (!text) return res.status(400).json({ ok: false, message: 'Message text is required' });
 
+    const replyTo = req.body.replyTo || null;
     const message = addMessage({
       roomId: room.id,
       userId: req.user.id,
       username: req.user.username,
-      text
+      text,
+      replyTo
     });
 
-    io.to(room.id).emit('new-message', {
+    ensureRoomMember(room.id, req.user.id);
+
+    const payload = {
       ...message,
+      reactions: [],
+      user: { id: req.user.id, username: req.user.username, displayName: req.user.displayName, role: req.user.role, avatar: req.user.avatar }
+    };
+
+    io.to(room.id).emit('new-message', payload);
+    res.status(201).json({ ok: true, message: payload });
+  });
+
+  router.patch('/rooms/:roomId/messages/:messageId', authRequired, (req, res) => {
+    const room = getRoomById(req.params.roomId);
+    if (!room) return res.status(404).json({ ok: false, message: 'Room not found' });
+
+    const message = getRoomMessages(room.id).find((item) => item.id === req.params.messageId);
+    if (!message) return res.status(404).json({ ok: false, message: 'Message not found' });
+
+    const canEdit = message.userId === req.user.id || ['admin', 'moderator'].includes(req.user.role);
+    if (!canEdit) return res.status(403).json({ ok: false, message: 'You cannot edit this message' });
+
+    const text = sanitizeText(req.body.text || '', '');
+    if (!text) return res.status(400).json({ ok: false, message: 'Message text is required' });
+
+    const updated = editMessage(message.id, text);
+    const payload = {
+      ...updated,
+      reactions: getMessageReactions(updated.id),
       user: { id: req.user.id, username: req.user.username, displayName: req.user.displayName, role: req.user.role }
+    };
+
+    io.to(room.id).emit('message-edited', { roomId: room.id, message: payload });
+    res.json({ ok: true, message: payload });
+  });
+
+  router.delete('/rooms/:roomId/messages/:messageId', authRequired, (req, res) => {
+    const room = getRoomById(req.params.roomId);
+    if (!room) return res.status(404).json({ ok: false, message: 'Room not found' });
+
+    const message = getRoomMessages(room.id).find((item) => item.id === req.params.messageId);
+    if (!message) return res.status(404).json({ ok: false, message: 'Message not found' });
+
+    const canDelete = message.userId === req.user.id || ['admin', 'moderator'].includes(req.user.role);
+    if (!canDelete) return res.status(403).json({ ok: false, message: 'You cannot delete this message' });
+
+    const deleted = deleteMessage(message.id);
+    io.to(room.id).emit('message-deleted', { roomId: room.id, messageId: message.id, message: deleted });
+    res.json({ ok: true, messageId: message.id });
+  });
+
+  router.post('/rooms/:roomId/messages/:messageId/react', authRequired, (req, res) => {
+    const room = getRoomById(req.params.roomId);
+    if (!room) return res.status(404).json({ ok: false, message: 'Room not found' });
+
+    const message = getRoomMessages(room.id).find((item) => item.id === req.params.messageId);
+    if (!message) return res.status(404).json({ ok: false, message: 'Message not found' });
+
+    const emoji = sanitizeText(String(req.body.emoji || ''), '');
+    if (!emoji) return res.status(400).json({ ok: false, message: 'Emoji is required' });
+
+    const result = toggleMessageReaction({ messageId: message.id, userId: req.user.id, emoji });
+    const reactions = getMessageReactions(message.id);
+
+    io.to(room.id).emit('message-reacted', {
+      roomId: room.id,
+      messageId: message.id,
+      reactions,
+      action: result.action,
+      emoji: result.emoji,
+      userId: req.user.id
     });
 
-    res.status(201).json({ ok: true, message });
+    res.json({ ok: true, reactions, action: result.action, emoji: result.emoji });
   });
 
   router.get('/admin/overview', authRequired, requireRole('admin'), (req, res) => {
