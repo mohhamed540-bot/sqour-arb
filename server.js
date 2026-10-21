@@ -1,9 +1,15 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const path = require('path');
 
-const { PORT, HOST, STATIC_DIRS, ENTRY_POINTS } = require('./src/config');
+const { PORT, HOST, STATIC_DIRS, ENTRY_POINTS, NODE_ENV } = require('./src/config');
 const { registerSocket } = require('./src/socketHandlers');
+const apiRoutes = require('./src/routes');
+const { ensureSeedData } = require('./src/db');
 
 const app = express();
 const server = http.createServer(app);
@@ -16,6 +22,25 @@ const io = new Server(server, {
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
+
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, message: 'Too many requests, please try again later.' }
+}));
+
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -23,16 +48,27 @@ for (const dir of STATIC_DIRS) {
   app.use(express.static(dir, { index: false, redirect: false }));
 }
 
+app.use('/api', apiRoutes);
+
 app.get('/', (req, res) => {
-  res.sendFile(ENTRY_POINTS.home);
+  if (ENTRY_POINTS.home && require('fs').existsSync(ENTRY_POINTS.home)) {
+    return res.sendFile(ENTRY_POINTS.home);
+  }
+  res.json({ ok: true, message: 'sqour-arb server is running' });
 });
 
 app.get('/chat', (req, res) => {
-  res.sendFile(ENTRY_POINTS.chat);
+  if (ENTRY_POINTS.chat && require('fs').existsSync(ENTRY_POINTS.chat)) {
+    return res.sendFile(ENTRY_POINTS.chat);
+  }
+  res.json({ ok: true, message: 'Chat endpoint' });
 });
 
 app.get('/admin', (req, res) => {
-  res.sendFile(ENTRY_POINTS.admin);
+  if (ENTRY_POINTS.admin && require('fs').existsSync(ENTRY_POINTS.admin)) {
+    return res.sendFile(ENTRY_POINTS.admin);
+  }
+  res.json({ ok: true, message: 'Admin endpoint' });
 });
 
 app.get('/health', (req, res) => {
@@ -40,17 +76,20 @@ app.get('/health', (req, res) => {
     ok: true,
     message: 'sqour-arb server is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: NODE_ENV
   });
 });
 
 app.use((req, res) => {
-  res.status(404).json({
-    ok: false,
-    message: 'Not found'
-  });
+  res.status(404).json({ ok: false, message: 'Not found' });
 });
 
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ ok: false, message: 'Internal server error' });
+});
+
+ensureSeedData();
 io.on('connection', (socket) => registerSocket(io, socket));
 
 server.listen(PORT, HOST, () => {
