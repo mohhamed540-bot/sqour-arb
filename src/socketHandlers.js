@@ -1,5 +1,6 @@
 const { DEFAULT_ROOM } = require('./config');
-const { findUserByToken, getRoomById, addMessage, getRoomMessages } = require('./db');
+const { verifyToken } = require('./auth');
+const { getRoomById, getRoomMessages, addMessage, findUserById } = require('./db');
 
 function sanitizeText(value, fallback = '') {
   if (typeof value !== 'string') return fallback;
@@ -10,17 +11,22 @@ function sanitizeText(value, fallback = '') {
 function registerSocket(io, socket) {
   socket.on('auth', (payload = {}) => {
     const token = payload.token || payload.authorization || '';
-    const user = findUserByToken(token);
-
-    if (!user) {
+    const decoded = verifyToken(token);
+    if (!decoded) {
       socket.emit('auth_error', { message: 'Invalid token' });
+      socket.disconnect(true);
+      return;
+    }
+
+    const user = findUserById(decoded.sub);
+    if (!user) {
+      socket.emit('auth_error', { message: 'User not found' });
       socket.disconnect(true);
       return;
     }
 
     socket.user = user;
     socket.join(DEFAULT_ROOM);
-
     socket.emit('auth_ok', {
       user: {
         id: user.id,
@@ -51,8 +57,7 @@ function registerSocket(io, socket) {
     }
 
     socket.join(room.id);
-    const history = getRoomMessages(room.id);
-    socket.emit('room-history', { roomId: room.id, messages: history });
+    socket.emit('room-history', { roomId: room.id, messages: getRoomMessages(room.id) });
 
     io.to(room.id).emit('presence', {
       type: 'join',
@@ -124,4 +129,4 @@ function registerSocket(io, socket) {
   });
 }
 
-module.exports = { registerSocket, sanitizeText };
+module.exports = { registerSocket };

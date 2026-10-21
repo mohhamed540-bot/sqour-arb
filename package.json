@@ -1,7 +1,7 @@
 {
   "name": "sqour-arb",
   "version": "1.0.0",
-  "description": "Socket.IO chat and static front-end platform",
+  "description": "Full-stack chat app with admin dashboard and secure Socket.IO backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,7 +12,8 @@
     "chat",
     "socket.io",
     "express",
-    "websocket"
+    "dashboard",
+    "admin"
   ],
   "author": "mohhamed540-bot",
   "license": "ISC",
@@ -22,10 +23,14 @@
     "node": ">=18"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "express": "^5.3.0",
     "express-rate-limit": "^7.4.1",
     "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
     "socket.io": "^4.8.4"
   }
 }

@@ -1,176 +1,202 @@
 const fs = require('fs');
 const path = require('path');
+const Database = require('better-sqlite3');
+const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
-const { DATA_DIR } = require('./config');
+const { DATA_DIR, DEFAULT_ROOM } = require('./config');
 
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-const ROOMS_FILE = path.join(DATA_DIR, 'rooms.json');
-const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
+let db;
 
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
+function initDatabase() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  db = new Database(path.join(DATA_DIR, 'app.db'));
 
-function readJson(filePath, fallback) {
-  try {
-    if (!fs.existsSync(filePath)) return fallback;
-    const raw = fs.readFileSync(filePath, 'utf8');
-    if (!raw.trim()) return fallback;
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      displayName TEXT NOT NULL,
+      passwordHash TEXT NOT NULL,
+      role TEXT DEFAULT 'user',
+      createdAt TEXT NOT NULL,
+      lastSeen TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS rooms (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      description TEXT,
+      createdBy TEXT,
+      createdAt TEXT NOT NULL,
+      isPrivate INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      roomId TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      username TEXT NOT NULL,
+      text TEXT NOT NULL,
+      createdAt TEXT NOT NULL
+    );
+  `);
+
+  const roomCount = db.prepare('SELECT COUNT(*) AS count FROM rooms').get().count;
+  if (roomCount === 0) {
+    db.prepare(`INSERT INTO rooms (id, name, description, createdBy, createdAt, isPrivate) VALUES (?, ?, ?, ?, ?, ?)`).run(
+      'general',
+      DEFAULT_ROOM,
+      'غرفة عامة',
+      'system',
+      new Date().toISOString(),
+      0
+    );
   }
+
+  const adminCount = db.prepare('SELECT COUNT(*) AS count FROM users WHERE role = ?').get('admin').count;
+  if (adminCount === 0) {
+    const adminUser = {
+      id: crypto.randomUUID(),
+      username: 'admin',
+      displayName: 'Administrator',
+      passwordHash: bcrypt.hashSync('admin123', 10),
+      role: 'admin',
+      createdAt: new Date().toISOString(),
+      lastSeen: new Date().toISOString()
+    };
+    db.prepare(`INSERT INTO users (id, username, displayName, passwordHash, role, createdAt, lastSeen) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
+      adminUser.id,
+      adminUser.username,
+      adminUser.displayName,
+      adminUser.passwordHash,
+      adminUser.role,
+      adminUser.createdAt,
+      adminUser.lastSeen
+    );
+  }
+
+  return db;
 }
 
-function writeJson(filePath, data) {
-  ensureDir(path.dirname(filePath));
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+function getDb() {
+  if (!db) return initDatabase();
+  return db;
 }
 
-function ensureSeedData() {
-  const users = readJson(USERS_FILE, []);
-  const rooms = readJson(ROOMS_FILE, [{
-    id: 'general',
-    name: 'الرئيسية',
-    description: 'غرفة عامة',
-    createdBy: 'system',
-    createdAt: new Date().toISOString(),
-    isPrivate: false
-  }]);
-  const messages = readJson(MESSAGES_FILE, [{
-    id: 'welcome-message',
-    roomId: 'general',
-    userId: 'system',
-    username: 'system',
-    text: 'مرحباً بك في sqour-arb، ابدأ المحادثة الآن.',
-    createdAt: new Date().toISOString()
-  }]);
-
-  if (!users.length) writeJson(USERS_FILE, users);
-  if (!rooms.length) writeJson(ROOMS_FILE, rooms);
-  if (!messages.length) writeJson(MESSAGES_FILE, messages);
+function sanitizeText(value, fallback = '') {
+  if (typeof value !== 'string') return fallback;
+  const text = value.trim();
+  return text || fallback;
 }
 
 function getUsers() {
-  ensureSeedData();
-  return readJson(USERS_FILE, []);
+  return getDb().prepare('SELECT * FROM users ORDER BY createdAt DESC').all();
 }
 
 function getRooms() {
-  ensureSeedData();
-  return readJson(ROOMS_FILE, []);
+  return getDb().prepare('SELECT * FROM rooms ORDER BY createdAt DESC').all();
 }
 
-function getMessages() {
-  ensureSeedData();
-  return readJson(MESSAGES_FILE, []);
+function getRoomById(roomId) {
+  return getDb().prepare('SELECT * FROM rooms WHERE id = ? OR name = ?').get(roomId, roomId) || null;
 }
 
-function findUserByUsername(username) {
-  const name = String(username || '').trim().toLowerCase();
-  return getUsers().find((user) => String(user.username || '').toLowerCase() === name) || null;
-}
-
-function findUserById(userId) {
-  return getUsers().find((user) => user.id === userId) || null;
-}
-
-function findUserByToken(token) {
-  return getUsers().find((user) => user.token === token) || null;
-}
-
-function makeSalt() {
-  return crypto.randomBytes(16).toString('hex');
-}
-
-function hashPassword(password, salt) {
-  return crypto.createHash('sha256').update(`${salt}:${password}`).digest('hex');
+function getRoomByName(name) {
+  return getDb().prepare('SELECT * FROM rooms WHERE name = ?').get(name) || null;
 }
 
 function createUser({ username, password, displayName, role = 'user' }) {
-  const users = getUsers();
-  if (findUserByUsername(username)) throw new Error('Username already exists');
+  const existing = getDb().prepare('SELECT id FROM users WHERE username = ?').get(username);
+  if (existing) throw new Error('Username already exists');
 
-  const salt = makeSalt();
   const user = {
     id: crypto.randomUUID(),
-    username: String(username).trim(),
-    displayName: String(displayName || username).trim(),
-    passwordHash: hashPassword(String(password), salt),
-    salt,
+    username: sanitizeText(username, ''),
+    displayName: sanitizeText(displayName || username, username),
+    passwordHash: bcrypt.hashSync(String(password), 10),
     role,
-    token: crypto.randomBytes(32).toString('hex'),
     createdAt: new Date().toISOString(),
-    isActive: true
+    lastSeen: new Date().toISOString()
   };
 
-  users.push(user);
-  writeJson(USERS_FILE, users);
-  return { ...user, passwordHash: undefined, salt: undefined };
+  getDb().prepare(`INSERT INTO users (id, username, displayName, passwordHash, role, createdAt, lastSeen) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
+    user.id, user.username, user.displayName, user.passwordHash, user.role, user.createdAt, user.lastSeen
+  );
+
+  return user;
+}
+
+function findUserByUsername(username) {
+  return getDb().prepare('SELECT * FROM users WHERE username = ?').get(username) || null;
+}
+
+function findUserById(userId) {
+  return getDb().prepare('SELECT * FROM users WHERE id = ?').get(userId) || null;
 }
 
 function verifyPassword(user, password) {
-  return user && user.passwordHash === hashPassword(String(password), user.salt);
+  if (!user) return false;
+  return bcrypt.compareSync(String(password), user.passwordHash);
 }
 
-function createRoom({ name, description = '', createdBy, isPrivate = false }) {
-  const rooms = getRooms();
-  const roomName = String(name || '').trim();
+function createRoom({ name, description = '', createdBy }) {
+  const roomName = sanitizeText(name, '');
   if (!roomName) throw new Error('Room name is required');
-  if (rooms.some((room) => room.name.toLowerCase() === roomName.toLowerCase())) {
-    throw new Error('Room already exists');
-  }
+
+  const existing = getRoomByName(roomName);
+  if (existing) throw new Error('Room already exists');
 
   const room = {
     id: crypto.randomUUID(),
     name: roomName,
-    description: String(description).trim(),
+    description: sanitizeText(description, ''),
     createdBy,
     createdAt: new Date().toISOString(),
-    isPrivate: Boolean(isPrivate)
+    isPrivate: 0
   };
 
-  rooms.push(room);
-  writeJson(ROOMS_FILE, rooms);
+  getDb().prepare(`INSERT INTO rooms (id, name, description, createdBy, createdAt, isPrivate) VALUES (?, ?, ?, ?, ?, ?)`).run(
+    room.id, room.name, room.description, room.createdBy, room.createdAt, room.isPrivate
+  );
+
   return room;
 }
 
 function addMessage({ roomId, userId, username, text }) {
-  const messages = getMessages();
-  const message = {
+  const msg = {
     id: crypto.randomUUID(),
     roomId,
     userId,
     username,
-    text: String(text).slice(0, 2000),
+    text: String(text).slice(0, 4000),
     createdAt: new Date().toISOString()
   };
-  messages.push(message);
-  writeJson(MESSAGES_FILE, messages);
-  return message;
+
+  getDb().prepare(`INSERT INTO messages (id, roomId, userId, username, text, createdAt) VALUES (?, ?, ?, ?, ?, ?)`).run(
+    msg.id, msg.roomId, msg.userId, msg.username, msg.text, msg.createdAt
+  );
+
+  return msg;
 }
 
 function getRoomMessages(roomId) {
-  return getMessages().filter((message) => message.roomId === roomId).slice(-100);
-}
-
-function getRoomById(roomId) {
-  return getRooms().find((room) => room.id === roomId || room.name === roomId) || null;
+  return getDb().prepare('SELECT * FROM messages WHERE roomId = ? ORDER BY createdAt ASC LIMIT 200').all(roomId);
 }
 
 module.exports = {
-  ensureSeedData,
+  initDatabase,
+  getDb,
   getUsers,
   getRooms,
-  getMessages,
+  getRoomById,
+  getRoomByName,
+  createUser,
   findUserByUsername,
   findUserById,
-  findUserByToken,
-  createUser,
   verifyPassword,
   createRoom,
   addMessage,
   getRoomMessages,
-  getRoomById
+  sanitizeText
 };

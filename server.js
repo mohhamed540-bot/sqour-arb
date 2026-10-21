@@ -1,15 +1,19 @@
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 const fs = require('fs');
+const dotenv = require('dotenv');
+const { Server } = require('socket.io');
 
-const { PORT, HOST, STATIC_DIRS, ENTRY_POINTS, NODE_ENV } = require('./src/config');
+dotenv.config();
+
+const { PORT, HOST, STATIC_DIRS, NODE_ENV } = require('./src/config');
+const { initDatabase } = require('./src/db');
+const { createApiRouter } = require('./src/routes');
 const { registerSocket } = require('./src/socketHandlers');
-const apiRoutes = require('./src/routes');
-const { ensureSeedData } = require('./src/db');
 
 const app = express();
 const server = http.createServer(app);
@@ -48,27 +52,29 @@ for (const dir of STATIC_DIRS) {
   app.use(express.static(dir, { index: false, redirect: false }));
 }
 
-app.use('/api', apiRoutes);
+const publicDir = path.join(__dirname, 'public');
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+}
+
+app.use('/api', createApiRouter());
 
 app.get('/', (req, res) => {
-  if (ENTRY_POINTS.home && fs.existsSync(ENTRY_POINTS.home)) {
-    return res.sendFile(ENTRY_POINTS.home);
-  }
-  res.json({ ok: true, message: 'sqour-arb server is running' });
+  const home = path.join(publicDir, 'index.html');
+  if (fs.existsSync(home)) return res.sendFile(home);
+  res.send('sqour-arb ready');
 });
 
 app.get('/chat', (req, res) => {
-  if (ENTRY_POINTS.chat && fs.existsSync(ENTRY_POINTS.chat)) {
-    return res.sendFile(ENTRY_POINTS.chat);
-  }
-  res.json({ ok: true, message: 'Chat endpoint' });
+  const chat = path.join(publicDir, 'chat.html');
+  if (fs.existsSync(chat)) return res.sendFile(chat);
+  res.send('chat ready');
 });
 
 app.get('/admin', (req, res) => {
-  if (ENTRY_POINTS.admin && fs.existsSync(ENTRY_POINTS.admin)) {
-    return res.sendFile(ENTRY_POINTS.admin);
-  }
-  res.json({ ok: true, message: 'Admin endpoint' });
+  const admin = path.join(publicDir, 'admin.html');
+  if (fs.existsSync(admin)) return res.sendFile(admin);
+  res.send('admin ready');
 });
 
 app.get('/health', (req, res) => {
@@ -76,7 +82,7 @@ app.get('/health', (req, res) => {
     ok: true,
     message: 'sqour-arb server is running',
     timestamp: new Date().toISOString(),
-    environment: NODE_ENV
+    environment: NODE_ENV || 'development'
   });
 });
 
@@ -89,7 +95,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ ok: false, message: 'Internal server error' });
 });
 
-ensureSeedData();
+initDatabase();
 io.on('connection', (socket) => registerSocket(io, socket));
 
 server.listen(PORT, HOST, () => {

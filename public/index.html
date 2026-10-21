@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sqour-arb | تسجيل الدخول</title>
+    <style>
+      body { font-family: Tahoma, sans-serif; background: linear-gradient(135deg, #0f172a, #111827); color: white; margin: 0; display: grid; place-items: center; min-height: 100vh; }
+      .card { background: rgba(15,23,42,.85); padding: 32px; border-radius: 18px; width: min(420px, 80vw); box-shadow: 0 25px 60px rgba(0,0,0,.4); }
+      h2 { margin-top: 0; }
+      input, button { width: 100%; box-sizing: border-box; padding: 12px 14px; margin-top: 12px; border-radius: 10px; border: 1px solid #334155; background: rgba(15, 23, 42, 0.7); color: white; font-size: 16px; }
+      button { background: linear-gradient(135deg, #2563eb, #22c55e); border: none; cursor: pointer; font-weight: bold; }
+      .switch { margin-top: 16px; text-align: center; }
+      .switch a { color: #93c5fd; text-decoration: none; }
+      .alert { margin-top: 12px; color: #fca5a5; display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h2>تسجيل الدخول إلى sqour-arb</h2>
+      <div class="alert" id="alert"></div>
+      <input id="username" placeholder="اسم المستخدم" />
+      <input id="password" type="password" placeholder="كلمة المرور" />
+      <button id="loginBtn">دخول</button>
+      <div class="switch"><a href="/chat">الذهاب إلى الدردشة</a></div>
+    </div>
+
+    <script>
+      const loginBtn = document.getElementById('loginBtn');
+      const alertBox = document.getElementById('alert');
+
+      loginBtn.addEventListener('click', async () => {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+
+        if (!username || !password) {
+          alertBox.style.display = 'block';
+          alertBox.textContent = 'يرجى إدخال اسم المستخدم وكلمة المرور.';
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
+
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Login failed');
+
+          localStorage.setItem('sqourToken', data.token);
+          localStorage.setItem('sqourUser', JSON.stringify(data.user));
+          window.location.href = '/chat';
+        } catch (err) {
+          alertBox.style.display = 'block';
+          alertBox.textContent = err.message;
+        }
+      });
+    </script>
+  </body>
+</html>
