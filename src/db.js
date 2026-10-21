@@ -9,22 +9,16 @@ const ROOMS_FILE = path.join(DATA_DIR, 'rooms.json');
 const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
 
 function ensureDir(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 function readJson(filePath, fallback) {
   try {
-    if (!fs.existsSync(filePath)) {
-      return fallback;
-    }
-    const content = fs.readFileSync(filePath, 'utf8');
-    if (!content.trim()) {
-      return fallback;
-    }
-    return JSON.parse(content);
-  } catch (error) {
+    if (!fs.existsSync(filePath)) return fallback;
+    const raw = fs.readFileSync(filePath, 'utf8');
+    if (!raw.trim()) return fallback;
+    return JSON.parse(raw);
+  } catch {
     return fallback;
   }
 }
@@ -36,36 +30,26 @@ function writeJson(filePath, data) {
 
 function ensureSeedData() {
   const users = readJson(USERS_FILE, []);
-  const rooms = readJson(ROOMS_FILE, [
-    {
-      id: 'general',
-      name: 'الرئيسية',
-      description: 'غرفة عامة',
-      createdBy: 'system',
-      createdAt: new Date().toISOString(),
-      isPrivate: false
-    }
-  ]);
-  const messages = readJson(MESSAGES_FILE, [
-    {
-      id: 'welcome-message',
-      roomId: 'general',
-      userId: 'system',
-      username: 'system',
-      text: 'مرحباً بك في sqour-arb، ابدأ المحادثة الآن.',
-      createdAt: new Date().toISOString()
-    }
-  ]);
+  const rooms = readJson(ROOMS_FILE, [{
+    id: 'general',
+    name: 'الرئيسية',
+    description: 'غرفة عامة',
+    createdBy: 'system',
+    createdAt: new Date().toISOString(),
+    isPrivate: false
+  }]);
+  const messages = readJson(MESSAGES_FILE, [{
+    id: 'welcome-message',
+    roomId: 'general',
+    userId: 'system',
+    username: 'system',
+    text: 'مرحباً بك في sqour-arb، ابدأ المحادثة الآن.',
+    createdAt: new Date().toISOString()
+  }]);
 
-  if (!users.length) {
-    writeJson(USERS_FILE, users);
-  }
-  if (!rooms.length) {
-    writeJson(ROOMS_FILE, rooms);
-  }
-  if (!messages.length) {
-    writeJson(MESSAGES_FILE, messages);
-  }
+  if (!users.length) writeJson(USERS_FILE, users);
+  if (!rooms.length) writeJson(ROOMS_FILE, rooms);
+  if (!messages.length) writeJson(MESSAGES_FILE, messages);
 }
 
 function getUsers() {
@@ -83,20 +67,9 @@ function getMessages() {
   return readJson(MESSAGES_FILE, []);
 }
 
-function saveUsers(users) {
-  writeJson(USERS_FILE, users);
-}
-
-function saveRooms(rooms) {
-  writeJson(ROOMS_FILE, rooms);
-}
-
-function saveMessages(messages) {
-  writeJson(MESSAGES_FILE, messages);
-}
-
 function findUserByUsername(username) {
-  return getUsers().find((user) => user.username.toLowerCase() === String(username).toLowerCase());
+  const name = String(username || '').trim().toLowerCase();
+  return getUsers().find((user) => String(user.username || '').toLowerCase() === name) || null;
 }
 
 function findUserById(userId) {
@@ -115,7 +88,10 @@ function hashPassword(password, salt) {
   return crypto.createHash('sha256').update(`${salt}:${password}`).digest('hex');
 }
 
-function createUserRecord({ username, password, displayName, role = 'user' }) {
+function createUser({ username, password, displayName, role = 'user' }) {
+  const users = getUsers();
+  if (findUserByUsername(username)) throw new Error('Username already exists');
+
   const salt = makeSalt();
   const user = {
     id: crypto.randomUUID(),
@@ -128,39 +104,27 @@ function createUserRecord({ username, password, displayName, role = 'user' }) {
     createdAt: new Date().toISOString(),
     isActive: true
   };
-  return user;
-}
 
-function createUser({ username, password, displayName, role = 'user' }) {
-  const users = getUsers();
-  if (findUserByUsername(username)) {
-    throw new Error('Username already exists');
-  }
-
-  const user = createUserRecord({ username, password, displayName, role });
   users.push(user);
-  saveUsers(users);
+  writeJson(USERS_FILE, users);
   return { ...user, passwordHash: undefined, salt: undefined };
 }
 
 function verifyPassword(user, password) {
-  return user.passwordHash === hashPassword(String(password), user.salt);
+  return user && user.passwordHash === hashPassword(String(password), user.salt);
 }
 
 function createRoom({ name, description = '', createdBy, isPrivate = false }) {
   const rooms = getRooms();
-  const targetName = String(name).trim();
-  if (!targetName) {
-    throw new Error('Room name is required');
-  }
-
-  if (rooms.some((room) => room.name.toLowerCase() === targetName.toLowerCase())) {
+  const roomName = String(name || '').trim();
+  if (!roomName) throw new Error('Room name is required');
+  if (rooms.some((room) => room.name.toLowerCase() === roomName.toLowerCase())) {
     throw new Error('Room already exists');
   }
 
   const room = {
     id: crypto.randomUUID(),
-    name: targetName,
+    name: roomName,
     description: String(description).trim(),
     createdBy,
     createdAt: new Date().toISOString(),
@@ -168,7 +132,7 @@ function createRoom({ name, description = '', createdBy, isPrivate = false }) {
   };
 
   rooms.push(room);
-  saveRooms(rooms);
+  writeJson(ROOMS_FILE, rooms);
   return room;
 }
 
@@ -182,9 +146,8 @@ function addMessage({ roomId, userId, username, text }) {
     text: String(text).slice(0, 2000),
     createdAt: new Date().toISOString()
   };
-
   messages.push(message);
-  saveMessages(messages);
+  writeJson(MESSAGES_FILE, messages);
   return message;
 }
 
@@ -197,6 +160,7 @@ function getRoomById(roomId) {
 }
 
 module.exports = {
+  ensureSeedData,
   getUsers,
   getRooms,
   getMessages,
@@ -208,6 +172,5 @@ module.exports = {
   createRoom,
   addMessage,
   getRoomMessages,
-  getRoomById,
-  ensureSeedData
+  getRoomById
 };

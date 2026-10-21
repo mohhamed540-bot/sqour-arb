@@ -11,7 +11,10 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Build/test artifacts
+# Build
 coverage/
 .tmp/
 .cache/
+
+# Data
+/data/

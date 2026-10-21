@@ -1,4 +1,6 @@
+const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const rootDir = path.resolve(__dirname, '..');
 
@@ -6,7 +8,7 @@ module.exports = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: Number(process.env.PORT || 3000),
   HOST: process.env.HOST || '0.0.0.0',
-  DEFAULT_ROOM: process.env.DEFAULT_ROOM || 'general',
+  DEFAULT_ROOM: process.env.DEFAULT_ROOM || 'الرئيسية',
   ROOT_DIR: rootDir,
   DATA_DIR: path.join(rootDir, 'data'),
   STATIC_DIRS: [

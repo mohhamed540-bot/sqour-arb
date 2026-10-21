@@ -1,137 +1,129 @@
-const { DEFAULT_ROOM } = require('./config');
-const { findUserById, findUserByToken, getRoomById, addMessage, getRoomMessages } = require('./db');
+const express = require('express');
+const { authRequired, sanitizeText } = require('./auth');
+const {
+  findUserByUsername,
+  createUser,
+  verifyPassword,
+  getUsers,
+  getRooms,
+  createRoom,
+  getRoomById,
+  getRoomMessages,
+  addMessage,
+  findUserById
+} = require('./db');
 
-function sanitizeText(value, fallback = '') {
-  if (typeof value !== 'string') return fallback;
-  const text = value.trim();
-  return text || fallback;
+const router = express.Router();
+
+function safeUser(user) {
+  if (!user) return null;
+  const { passwordHash, salt, token, ...safe } = user;
+  return safe;
 }
 
-function buildPresencePayload(io, roomId) {
-  const room = io.sockets.adapter.rooms.get(roomId);
-  const members = room ? [...room] : [];
-  return {
-    roomId,
-    members: members.map((socketId) => ({ socketId }))
-  };
-}
+router.get('/health', (req, res) => {
+  res.json({ ok: true, message: 'sqour-arb is running' });
+});
 
-function registerSocket(io, socket) {
-  socket.on('auth', (payload = {}) => {
-    const token = payload.token || payload.authorization || '';
-    const user = findUserByToken(token);
+router.post('/auth/register', async (req, res) => {
+  try {
+    const username = sanitizeText(req.body.username || '', '');
+    const password = String(req.body.password || '');
+    const displayName = sanitizeText(req.body.displayName || username, username);
 
-    if (!user) {
-      socket.emit('auth_error', { message: 'Invalid token' });
-      socket.disconnect(true);
-      return;
+    if (!username || password.length < 4) {
+      return res.status(400).json({ ok: false, message: 'Username and password are required (minimum 4 chars)' });
     }
 
-    socket.user = user;
-    socket.join(DEFAULT_ROOM);
-    socket.emit('auth_ok', {
-      user: {
-        id: user.id,
-        username: user.username,
-        displayName: user.displayName,
-        role: user.role
-      },
-      roomId: DEFAULT_ROOM
-    });
+    const user = createUser({ username, password, displayName });
+    res.status(201).json({ ok: true, user: safeUser(user) });
+  } catch (error) {
+    res.status(400).json({ ok: false, message: error.message || 'Registration failed' });
+  }
+});
 
-    io.emit('presence', {
-      type: 'online',
-      user: { id: user.id, username: user.username },
-      roomId: DEFAULT_ROOM
+router.post('/auth/login', (req, res) => {
+  try {
+    const username = sanitizeText(req.body.username || '', '');
+    const password = String(req.body.password || '');
+    const user = findUserByUsername(username);
+
+    if (!user || !verifyPassword(user, password)) {
+      return res.status(401).json({ ok: false, message: 'Invalid username or password' });
+    }
+
+    res.json({
+      ok: true,
+      token: user.token,
+      user: safeUser(user)
     });
+  } catch (error) {
+    res.status(400).json({ ok: false, message: error.message || 'Login failed' });
+  }
+});
+
+router.get('/users/me', authRequired, (req, res) => {
+  res.json({ ok: true, user: safeUser(req.user) });
+});
+
+router.get('/users', authRequired, (req, res) => {
+  res.json({ ok: true, users: getUsers().map(safeUser) });
+});
+
+router.get('/users/:userId', authRequired, (req, res) => {
+  const user = findUserById(req.params.userId);
+  if (!user) {
+    return res.status(404).json({ ok: false, message: 'User not found' });
+  }
+  res.json({ ok: true, user: safeUser(user) });
+});
+
+router.get('/rooms', authRequired, (req, res) => {
+  res.json({ ok: true, rooms: getRooms() });
+});
+
+router.post('/rooms', authRequired, (req, res) => {
+  try {
+    const room = createRoom({
+      name: req.body.name,
+      description: req.body.description || '',
+      createdBy: req.user.id,
+      isPrivate: Boolean(req.body.isPrivate)
+    });
+    res.status(201).json({ ok: true, room });
+  } catch (error) {
+    res.status(400).json({ ok: false, message: error.message || 'Room creation failed' });
+  }
+});
+
+router.get('/rooms/:roomId/messages', authRequired, (req, res) => {
+  const room = getRoomById(req.params.roomId);
+  if (!room) {
+    return res.status(404).json({ ok: false, message: 'Room not found' });
+  }
+
+  res.json({ ok: true, room, messages: getRoomMessages(room.id) });
+});
+
+router.post('/rooms/:roomId/messages', authRequired, (req, res) => {
+  const room = getRoomById(req.params.roomId);
+  if (!room) {
+    return res.status(404).json({ ok: false, message: 'Room not found' });
+  }
+
+  const text = sanitizeText(req.body.text || '', '');
+  if (!text) {
+    return res.status(400).json({ ok: false, message: 'Message text is required' });
+  }
+
+  const message = addMessage({
+    roomId: room.id,
+    userId: req.user.id,
+    username: req.user.username,
+    text
   });
 
-  socket.on('join-room', (roomId) => {
-    if (!socket.user) {
-      socket.emit('error', { message: 'Please authenticate first' });
-      return;
-    }
+  res.status(201).json({ ok: true, message });
+});
 
-    const room = getRoomById(roomId || DEFAULT_ROOM);
-    if (!room) {
-      socket.emit('error', { message: 'Room not found' });
-      return;
-    }
-
-    socket.join(room.id);
-    const history = getRoomMessages(room.id);
-    socket.emit('room-history', { roomId: room.id, messages: history });
-    io.to(room.id).emit('presence', {
-      type: 'join',
-      roomId: room.id,
-      user: {
-        id: socket.user.id,
-        username: socket.user.username,
-        displayName: socket.user.displayName
-      }
-    });
-  });
-
-  socket.on('send-message', ({ roomId, text }) => {
-    if (!socket.user) {
-      socket.emit('error', { message: 'Please authenticate first' });
-      return;
-    }
-
-    const room = getRoomById(roomId || DEFAULT_ROOM);
-    if (!room) {
-      socket.emit('error', { message: 'Room not found' });
-      return;
-    }
-
-    const cleanText = sanitizeText(text, '');
-    if (!cleanText) {
-      socket.emit('error', { message: 'Message text is required' });
-      return;
-    }
-
-    const message = addMessage({
-      roomId: room.id,
-      userId: socket.user.id,
-      username: socket.user.username,
-      text: cleanText
-    });
-
-    io.to(room.id).emit('new-message', {
-      ...message,
-      user: {
-        id: socket.user.id,
-        username: socket.user.username,
-        displayName: socket.user.displayName,
-        role: socket.user.role
-      }
-    });
-  });
-
-  socket.on('typing', ({ roomId, isTyping = true }) => {
-    if (!socket.user) return;
-    const room = getRoomById(roomId || DEFAULT_ROOM);
-    if (!room) return;
-
-    socket.to(room.id).emit('typing', {
-      userId: socket.user.id,
-      username: socket.user.username,
-      roomId: room.id,
-      isTyping
-    });
-  });
-
-  socket.on('disconnect', () => {
-    if (socket.user) {
-      io.emit('presence', {
-        type: 'offline',
-        user: { id: socket.user.id, username: socket.user.username }
-      });
-    }
-  });
-}
-
-module.exports = {
-  registerSocket,
-  sanitizeText
-};
+module.exports = router;

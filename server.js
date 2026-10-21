@@ -4,7 +4,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const path = require('path');
+const fs = require('fs');
 
 const { PORT, HOST, STATIC_DIRS, ENTRY_POINTS, NODE_ENV } = require('./src/config');
 const { registerSocket } = require('./src/socketHandlers');
@@ -51,21 +51,21 @@ for (const dir of STATIC_DIRS) {
 app.use('/api', apiRoutes);
 
 app.get('/', (req, res) => {
-  if (ENTRY_POINTS.home && require('fs').existsSync(ENTRY_POINTS.home)) {
+  if (ENTRY_POINTS.home && fs.existsSync(ENTRY_POINTS.home)) {
     return res.sendFile(ENTRY_POINTS.home);
   }
   res.json({ ok: true, message: 'sqour-arb server is running' });
 });
 
 app.get('/chat', (req, res) => {
-  if (ENTRY_POINTS.chat && require('fs').existsSync(ENTRY_POINTS.chat)) {
+  if (ENTRY_POINTS.chat && fs.existsSync(ENTRY_POINTS.chat)) {
     return res.sendFile(ENTRY_POINTS.chat);
   }
   res.json({ ok: true, message: 'Chat endpoint' });
 });
 
 app.get('/admin', (req, res) => {
-  if (ENTRY_POINTS.admin && require('fs').existsSync(ENTRY_POINTS.admin)) {
+  if (ENTRY_POINTS.admin && fs.existsSync(ENTRY_POINTS.admin)) {
     return res.sendFile(ENTRY_POINTS.admin);
   }
   res.json({ ok: true, message: 'Admin endpoint' });

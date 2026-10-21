@@ -1,30 +1,34 @@
 # sqour-arb
 
-A structured Node.js + Express + Socket.IO chat project with room-based messaging, static front-end support, and better server-side organization.
+A production-ready-ready Node.js chat server with Express, Socket.IO, room support, authentication, and local JSON persistence.
 
 ## Features
-
-- Express server with static site hosting
+- Express server with static file hosting
 - Socket.IO real-time messaging
-- Room-based chat support
-- User profile and presence tracking
+- Authenticated users and route protection
+- Room-based chat and history
+- Rate limiting and security headers
 - Health check endpoint
-- Environment configuration support
-- Safer packet handling and validation
+- Local JSON database for users, rooms, and messages
 
 ## Run
-
 ```bash
 npm install
 npm start
 ```
 
 Then open:
-
 - http://localhost:3000/
 - http://localhost:3000/chat
 - http://localhost:3000/admin
 
-## Environment
+## API examples
+```bash
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"demo","password":"123456","displayName":"Demo User"}'
+```
 
-Copy `.env.example` to `.env` and adjust values as needed.
+## Notes
+- The project is structured for extension and can be upgraded to MongoDB/PostgreSQL later.
+- Sensitive settings should be placed in `.env` instead of hardcoded values.
