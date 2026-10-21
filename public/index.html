@@ -1,62 +1,152 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>sqour-arb | تسجيل الدخول</title>
-    <style>
-      body { font-family: Tahoma, sans-serif; background: linear-gradient(135deg, #0f172a, #111827); color: white; margin: 0; display: grid; place-items: center; min-height: 100vh; }
-      .card { background: rgba(15,23,42,.85); padding: 32px; border-radius: 18px; width: min(420px, 80vw); box-shadow: 0 25px 60px rgba(0,0,0,.4); }
-      h2 { margin-top: 0; }
-      input, button { width: 100%; box-sizing: border-box; padding: 12px 14px; margin-top: 12px; border-radius: 10px; border: 1px solid #334155; background: rgba(15, 23, 42, 0.7); color: white; font-size: 16px; }
-      button { background: linear-gradient(135deg, #2563eb, #22c55e); border: none; cursor: pointer; font-weight: bold; }
-      .switch { margin-top: 16px; text-align: center; }
-      .switch a { color: #93c5fd; text-decoration: none; }
-      .alert { margin-top: 12px; color: #fca5a5; display: none; }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <h2>تسجيل الدخول إلى sqour-arb</h2>
-      <div class="alert" id="alert"></div>
-      <input id="username" placeholder="اسم المستخدم" />
-      <input id="password" type="password" placeholder="كلمة المرور" />
-      <button id="loginBtn">دخول</button>
-      <div class="switch"><a href="/chat">الذهاب إلى الدردشة</a></div>
-    </div>
+const { DEFAULT_ROOM } = require('./config');
+const { verifyToken } = require('./auth');
+const {
+  findUserById,
+  getRoomById,
+  getRoomMessages,
+  addMessage,
+  isUserBanned
+} = require('./db');
 
-    <script>
-      const loginBtn = document.getElementById('loginBtn');
-      const alertBox = document.getElementById('alert');
+function sanitizeText(value, fallback = '') {
+  if (typeof value !== 'string') return fallback;
+  const text = value.trim();
+  return text || fallback;
+}
 
-      loginBtn.addEventListener('click', async () => {
-        const username = document.getElementById('username').value.trim();
-        const password = document.getElementById('password').value;
+function registerSocket(io, socket) {
+  socket.on('auth', (payload = {}) => {
+    const token = payload.token || payload.authorization || '';
+    const decoded = verifyToken(token);
 
-        if (!username || !password) {
-          alertBox.style.display = 'block';
-          alertBox.textContent = 'يرجى إدخال اسم المستخدم وكلمة المرور.';
-          return;
-        }
+    if (!decoded) {
+      socket.emit('auth_error', { message: 'Invalid token' });
+      socket.disconnect(true);
+      return;
+    }
 
-        try {
-          const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-          });
+    const user = findUserById(decoded.sub);
+    if (!user) {
+      socket.emit('auth_error', { message: 'User not found' });
+      socket.disconnect(true);
+      return;
+    }
 
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.message || 'Login failed');
+    if (isUserBanned(user.id)) {
+      socket.emit('auth_error', { message: 'This user is banned' });
+      socket.disconnect(true);
+      return;
+    }
 
-          localStorage.setItem('sqourToken', data.token);
-          localStorage.setItem('sqourUser', JSON.stringify(data.user));
-          window.location.href = '/chat';
-        } catch (err) {
-          alertBox.style.display = 'block';
-          alertBox.textContent = err.message;
-        }
+    socket.user = user;
+    socket.join(DEFAULT_ROOM);
+    socket.emit('auth_ok', {
+      user: {
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        role: user.role,
+        status: user.status
+      },
+      roomId: DEFAULT_ROOM
+    });
+
+    io.emit('presence', {
+      type: 'online',
+      user: { id: user.id, username: user.username, role: user.role },
+      roomId: DEFAULT_ROOM
+    });
+  });
+
+  socket.on('join-room', (roomId) => {
+    if (!socket.user) {
+      socket.emit('error', { message: 'Please authenticate first' });
+      return;
+    }
+
+    const room = getRoomById(roomId || DEFAULT_ROOM);
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    socket.join(room.id);
+    socket.emit('room-history', { roomId: room.id, messages: getRoomMessages(room.id) });
+
+    io.to(room.id).emit('presence', {
+      type: 'join',
+      roomId: room.id,
+      user: {
+        id: socket.user.id,
+        username: socket.user.username,
+        displayName: socket.user.displayName,
+        role: socket.user.role
+      }
+    });
+  });
+
+  socket.on('send-message', ({ roomId, text } = {}) => {
+    if (!socket.user) {
+      socket.emit('error', { message: 'Please authenticate first' });
+      return;
+    }
+
+    if (isUserBanned(socket.user.id)) {
+      socket.emit('error', { message: 'This user is banned and cannot send messages' });
+      return;
+    }
+
+    const room = getRoomById(roomId || DEFAULT_ROOM);
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    const cleanText = sanitizeText(text, '');
+    if (!cleanText) {
+      socket.emit('error', { message: 'Message text is required' });
+      return;
+    }
+
+    const message = addMessage({
+      roomId: room.id,
+      userId: socket.user.id,
+      username: socket.user.username,
+      text: cleanText
+    });
+
+    io.to(room.id).emit('new-message', {
+      ...message,
+      user: {
+        id: socket.user.id,
+        username: socket.user.username,
+        displayName: socket.user.displayName,
+        role: socket.user.role
+      }
+    });
+  });
+
+  socket.on('typing', ({ roomId, isTyping = true } = {}) => {
+    if (!socket.user) return;
+    const room = getRoomById(roomId || DEFAULT_ROOM);
+    if (!room) return;
+
+    socket.to(room.id).emit('typing', {
+      roomId: room.id,
+      userId: socket.user.id,
+      username: socket.user.username,
+      isTyping
+    });
+  });
+
+  socket.on('disconnect', () => {
+    if (socket.user) {
+      io.emit('presence', {
+        type: 'offline',
+        user: { id: socket.user.id, username: socket.user.username }
       });
-    </script>
-  </body>
-</html>
+    }
+  });
+}
+
+module.exports = { registerSocket };

@@ -3,144 +3,97 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>sqour-arb | Chat</title>
+    <title>sqour-arb | تسجيل الدخول</title>
     <style>
-      body { margin: 0; font-family: Tahoma, sans-serif; background: #0f172a; color: #e2e8f0; }
-      .app { display: flex; height: 100vh; }
-      .sidebar { width: 260px; background: #111827; padding: 20px; border-left: 1px solid #334155; }
-      .main { flex: 1; display: flex; flex-direction: column; }
-      .header { padding: 18px 20px; background: #1f2937; border-bottom: 1px solid #334155; }
-      .messages { flex: 1; overflow: auto; padding: 20px; background: #0b1220; }
-      .input-wrap { display: flex; gap: 10px; padding: 20px; background: #111827; border-top: 1px solid #334155; }
-      input, button { padding: 12px; border-radius: 10px; border: 1px solid #334155; background: #0f172a; color: white; }
-      button { background: linear-gradient(135deg, #2563eb, #22c55e); border: none; cursor: pointer; }
-      .message { background: #1f2937; border-radius: 12px; padding: 12px; margin: 8px 0; }
-      .meta { font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
-      .room { display: block; background: #1e293b; margin: 8px 0; padding: 10px; border-radius: 8px; cursor: pointer; }
-      .hidden { display: none; }
-      .status { margin-top: 12px; color: #86efac; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #0f172a, #111827);
+        color: #e2e8f0;
+        font-family: Tahoma, sans-serif;
+      }
+      .card {
+        width: min(420px, 88vw);
+        background: rgba(15, 23, 42, 0.92);
+        padding: 28px;
+        border-radius: 18px;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+      }
+      h2 { margin-top: 0; }
+      input, button {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px 14px;
+        border-radius: 10px;
+        margin-top: 12px;
+        font-size: 16px;
+      }
+      input {
+        border: 1px solid #334155;
+        background: rgba(15,23,42,0.7);
+        color: white;
+      }
+      button {
+        border: none;
+        background: linear-gradient(135deg, #2563eb, #22c55e);
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+      }
+      .alert {
+        display: none;
+        margin-top: 12px;
+        color: #fca5a5;
+      }
+      .nav {
+        margin-top: 16px;
+        text-align: center;
+      }
+      .nav a { color: #93c5fd; text-decoration: none; }
     </style>
   </head>
   <body>
-    <div class="app">
-      <aside class="sidebar">
-        <h3>الغرف</h3>
-        <div id="roomsList"></div>
-        <div style="margin-top: 20px;">
-          <input id="roomName" placeholder="اسم غرفة جديدة" style="width:100%; box-sizing:border-box;" />
-          <button id="createRoomBtn" style="margin-top:10px; width:100%;">إنشاء غرفة</button>
-        </div>
-        <div class="status" id="status">غير متصل</div>
-      </aside>
-
-      <main class="main">
-        <div class="header" id="roomTitle">الرئيسية</div>
-        <div class="messages" id="messages"></div>
-        <div class="input-wrap">
-          <input id="messageInput" type="text" placeholder="اكتب رسالتك..." style="flex:1;" />
-          <button id="sendBtn">إرسال</button>
-        </div>
-      </main>
+    <div class="card">
+      <h2>تسجيل الدخول</h2>
+      <div id="alert" class="alert"></div>
+      <input id="username" placeholder="اسم المستخدم" />
+      <input id="password" type="password" placeholder="كلمة المرور" />
+      <button id="loginBtn">دخول</button>
+      <div class="nav"><a href="/chat">فتح الدردشة</a></div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
     <script>
-      const token = localStorage.getItem('sqourToken');
-      const user = JSON.parse(localStorage.getItem('sqourUser') || '{}');
-      const socket = io();
-      const roomsList = document.getElementById('roomsList');
-      const messagesEl = document.getElementById('messages');
-      const roomTitle = document.getElementById('roomTitle');
-      const statusEl = document.getElementById('status');
-      let activeRoom = 'الرئيسية';
+      const alertBox = document.getElementById('alert');
+      document.getElementById('loginBtn').addEventListener('click', async () => {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
 
-      function addMessage(msg) {
-        const div = document.createElement('div');
-        div.className = 'message';
-        div.innerHTML = `<div class="meta">${msg.username || 'user'} • ${new Date(msg.createdAt).toLocaleString()}</div><div>${msg.text}</div>`;
-        messagesEl.appendChild(div);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      }
-
-      function renderRooms(rooms) {
-        roomsList.innerHTML = '';
-        rooms.forEach((room) => {
-          const btn = document.createElement('div');
-          btn.className = 'room';
-          btn.textContent = room.name;
-          btn.onclick = () => {
-            activeRoom = room.name;
-            roomTitle.textContent = room.name;
-            socket.emit('join-room', room.name);
-          };
-          roomsList.appendChild(btn);
-        });
-      }
-
-      async function loadRooms() {
-        const res = await fetch('/api/rooms', { headers: { Authorization: `Bearer ${token}` } });
-        const data = await res.json();
-        if (data.ok) renderRooms(data.rooms);
-      }
-
-      async function createRoom() {
-        const roomName = document.getElementById('roomName').value.trim();
-        if (!roomName) return;
-        const res = await fetch('/api/rooms', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ name: roomName })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          document.getElementById('roomName').value = '';
-          await loadRooms();
+        if (!username || !password) {
+          alertBox.style.display = 'block';
+          alertBox.textContent = 'يرجى إدخال اسم المستخدم وكلمة المرور.';
+          return;
         }
-      }
 
-      if (!token) {
-        window.location.href = '/';
-      }
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
 
-      socket.on('connect', () => {
-        statusEl.textContent = 'متصل';
-        socket.emit('auth', { token });
-      });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Login failed');
 
-      socket.on('auth_ok', ({ roomId }) => {
-        activeRoom = roomId;
-        roomTitle.textContent = roomId;
-        socket.emit('join-room', roomId);
-      });
-
-      socket.on('room-history', ({ messages }) => {
-        messagesEl.innerHTML = '';
-        messages.forEach(addMessage);
-      });
-
-      socket.on('new-message', (msg) => {
-        addMessage(msg);
-      });
-
-      document.getElementById('createRoomBtn').onclick = createRoom;
-      document.getElementById('sendBtn').onclick = () => {
-        const input = document.getElementById('messageInput');
-        const text = input.value.trim();
-        if (!text) return;
-        socket.emit('send-message', { roomId: activeRoom, text });
-        input.value = '';
-      };
-
-      document.getElementById('messageInput').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          document.getElementById('sendBtn').click();
+          localStorage.setItem('sqourToken', data.token);
+          localStorage.setItem('sqourUser', JSON.stringify(data.user));
+          window.location.href = '/chat';
+        } catch (error) {
+          alertBox.style.display = 'block';
+          alertBox.textContent = error.message;
         }
       });
-
-      loadRooms();
     </script>
   </body>
 </html>

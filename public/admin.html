@@ -3,74 +3,145 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>sqour-arb | لوحة الإدارة</title>
+    <title>sqour-arb | الدردشة</title>
     <style>
       body { margin: 0; font-family: Tahoma, sans-serif; background: #020817; color: #e2e8f0; }
-      .wrap { max-width: 1100px; margin: 40px auto; padding: 20px; }
-      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
-      .card { background: #111827; padding: 18px; border-radius: 14px; border: 1px solid #334155; }
-      table { width: 100%; border-collapse: collapse; margin-top: 18px; }
-      th, td { padding: 12px; text-align: right; border-bottom: 1px solid #334155; }
-      .pill { display: inline-block; background: #1d4ed8; color: white; border-radius: 999px; padding: 6px 10px; font-size: 12px; }
+      .app { display: flex; height: 100vh; }
+      .sidebar { width: 260px; background: #111827; padding: 18px; border-left: 1px solid #334155; }
+      .main { flex: 1; display: flex; flex-direction: column; }
+      .header { padding: 18px 20px; background: #1f2937; border-bottom: 1px solid #334155; }
+      .messages { flex: 1; overflow: auto; padding: 18px; background: #0b1220; }
+      .input-wrap { display: flex; gap: 10px; padding: 18px; background: #111827; border-top: 1px solid #334155; }
+      input, button { border-radius: 10px; padding: 12px; border: 1px solid #334155; background: #0f172a; color: white; }
+      button { background: linear-gradient(135deg, #2563eb, #22c55e); border: none; cursor: pointer; }
+      .room-item { background: #1e293b; padding: 10px; border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
+      .message-item { background: #1f2937; padding: 12px; border-radius: 10px; margin-bottom: 10px; }
+      .meta { color: #94a3b8; font-size: 12px; margin-bottom: 6px; }
+      .status { margin-top: 12px; color: #86efac; }
     </style>
   </head>
   <body>
-    <div class="wrap">
-      <h2>لوحة الإدارة</h2>
-      <div class="grid">
-        <div class="card"><h3>إجمالي المستخدمين</h3><strong id="usersCount">0</strong></div>
-        <div class="card"><h3>إجمالي الغرف</h3><strong id="roomsCount">0</strong></div>
-        <div class="card"><h3>المشرفين</h3><strong id="adminsCount">0</strong></div>
-      </div>
-
-      <div class="card" style="margin-top: 24px;">
-        <h3>المستخدمون</h3>
-        <table>
-          <thead>
-            <tr><th>المستخدم</th><th>الدور</th><th>تاريخ الإنشاء</th></tr>
-          </thead>
-          <tbody id="usersTable"></tbody>
-        </table>
-      </div>
+    <div class="app">
+      <aside class="sidebar">
+        <h3>الغرف</h3>
+        <div id="roomsList"></div>
+        <div style="margin-top: 18px;">
+          <input id="roomNameInput" placeholder="اسم غرفة جديدة" style="width:100%; box-sizing:border-box;" />
+          <button id="createRoomBtn" style="width:100%; margin-top: 10px;">إنشاء غرفة</button>
+        </div>
+        <div id="status" class="status">غير متصل</div>
+      </aside>
+      <main class="main">
+        <div class="header" id="roomTitle">الرئيسية</div>
+        <div class="messages" id="messages"></div>
+        <div class="input-wrap">
+          <input id="messageInput" type="text" placeholder="اكتب رسالتك..." style="flex:1;" />
+          <button id="sendBtn">إرسال</button>
+        </div>
+      </main>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script>
       const token = localStorage.getItem('sqourToken');
-      if (!token) window.location.href = '/';
+      const user = JSON.parse(localStorage.getItem('sqourUser') || '{}');
+      const roomsList = document.getElementById('roomsList');
+      const messagesEl = document.getElementById('messages');
+      const roomTitle = document.getElementById('roomTitle');
+      const statusEl = document.getElementById('status');
+      const socket = io();
+      let activeRoom = 'الرئيسية';
 
-      async function loadAdmin() {
-        const res = await fetch('/api/admin/overview', {
+      if (!token) {
+        window.location.href = '/';
+      }
+
+      function renderRooms(rooms) {
+        roomsList.innerHTML = '';
+        rooms.forEach((room) => {
+          const btn = document.createElement('div');
+          btn.className = 'room-item';
+          btn.textContent = room.name;
+          btn.onclick = () => {
+            activeRoom = room.name;
+            roomTitle.textContent = room.name;
+            socket.emit('join-room', room.name);
+          };
+          roomsList.appendChild(btn);
+        });
+      }
+
+      async function loadRooms() {
+        const res = await fetch('/api/rooms', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await res.json();
-        if (!data.ok) {
-          alert(data.message || 'Access denied');
-          return;
+        if (data.ok) renderRooms(data.rooms);
+      }
+
+      async function createRoom() {
+        const name = document.getElementById('roomNameInput').value.trim();
+        if (!name) return;
+
+        const res = await fetch('/api/rooms', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ name })
+        });
+
+        const data = await res.json();
+        if (data.ok) {
+          document.getElementById('roomNameInput').value = '';
+          loadRooms();
         }
-
-        document.getElementById('usersCount').textContent = data.stats.users;
-        document.getElementById('roomsCount').textContent = data.stats.rooms;
-        document.getElementById('adminsCount').textContent = data.stats.admins;
       }
 
-      async function loadUsers() {
-        const res = await fetch('/api/users', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        const tbody = document.getElementById('usersTable');
-        tbody.innerHTML = '';
-        if (!data.ok) return;
-
-        data.users.forEach((user) => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${user.displayName || user.username}</td><td><span class="pill">${user.role}</span></td><td>${new Date(user.createdAt).toLocaleString()}</td>`;
-          tbody.appendChild(tr);
-        });
+      function addMessage(msg) {
+        const div = document.createElement('div');
+        div.className = 'message-item';
+        div.innerHTML = `<div class="meta">${msg.username || 'user'} • ${new Date(msg.createdAt).toLocaleString()}</div><div>${msg.text}</div>`;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
       }
 
-      loadAdmin();
-      loadUsers();
+      socket.on('connect', () => {
+        statusEl.textContent = 'متصل';
+        socket.emit('auth', { token });
+      });
+
+      socket.on('auth_ok', ({ roomId }) => {
+        activeRoom = roomId;
+        roomTitle.textContent = roomId;
+        socket.emit('join-room', roomId);
+      });
+
+      socket.on('room-history', ({ messages }) => {
+        messagesEl.innerHTML = '';
+        messages.forEach(addMessage);
+      });
+
+      socket.on('new-message', (msg) => {
+        addMessage(msg);
+      });
+
+      document.getElementById('createRoomBtn').onclick = createRoom;
+      document.getElementById('sendBtn').onclick = () => {
+        const message = document.getElementById('messageInput').value.trim();
+        if (!message) return;
+        socket.emit('send-message', { roomId: activeRoom, text: message });
+        document.getElementById('messageInput').value = '';
+      };
+
+      document.getElementById('messageInput').addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          document.getElementById('sendBtn').click();
+        }
+      });
+
+      loadRooms();
     </script>
   </body>
 </html>

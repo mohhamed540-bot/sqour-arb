@@ -1,36 +1,137 @@
-{
-  "name": "sqour-arb",
-  "version": "1.0.0",
-  "description": "Full-stack chat app with admin dashboard and secure Socket.IO backend",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
-    "test": "echo \"No automated tests configured yet\" && exit 0"
-  },
-  "keywords": [
-    "chat",
-    "socket.io",
-    "express",
-    "dashboard",
-    "admin"
-  ],
-  "author": "mohhamed540-bot",
-  "license": "ISC",
-  "type": "commonjs",
-  "private": true,
-  "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.7.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^5.3.0",
-    "express-rate-limit": "^7.4.1",
-    "helmet": "^8.0.0",
-    "jsonwebtoken": "^9.0.2",
-    "socket.io": "^4.8.4"
-  }
-}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sqour-arb | لوحة الإدارة</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Tahoma, sans-serif;
+        background: #020817;
+        color: #e2e8f0;
+      }
+      .wrap { max-width: 1200px; margin: 30px auto; padding: 20px; }
+      .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+      .card { background: #111827; border: 1px solid #334155; border-radius: 14px; padding: 18px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+      th, td { padding: 12px; border-bottom: 1px solid #334155; text-align: right; }
+      .badge {
+        display: inline-block;
+        background: #1d4ed8;
+        color: white;
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 12px;
+      }
+      button {
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 10px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h2>لوحة الإدارة</h2>
+      <div class="grid">
+        <div class="card"><h3>المستخدمون</h3><strong id="usersCount">0</strong></div>
+        <div class="card"><h3>الغرف</h3><strong id="roomsCount">0</strong></div>
+        <div class="card"><h3>المديرون</h3><strong id="adminsCount">0</strong></div>
+        <div class="card"><h3>المستخدمون النشطون</h3><strong id="activeUsers">0</strong></div>
+      </div>
+
+      <div class="card" style="margin-top: 24px;">
+        <h3>إدارة المستخدمين</h3>
+        <table>
+          <thead>
+            <tr><th>المستخدم</th><th>الدور</th><th>الحالة</th><th>إجراء</th></tr>
+          </thead>
+          <tbody id="usersTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const token = localStorage.getItem('sqourToken');
+      if (!token) {
+        window.location.href = '/';
+      }
+
+      async function loadOverview() {
+        const res = await fetch('/api/admin/overview', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          alert(data.message || 'Access denied');
+          return;
+        }
+
+        document.getElementById('usersCount').textContent = data.stats.users;
+        document.getElementById('roomsCount').textContent = data.stats.rooms;
+        document.getElementById('adminsCount').textContent = data.stats.admins;
+        document.getElementById('activeUsers').textContent = data.stats.activeUsers;
+      }
+
+      async function loadUsers() {
+        const res = await fetch('/api/users', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const tbody = document.getElementById('usersTable');
+        if (!data.ok || !data.users) return;
+
+        tbody.innerHTML = '';
+        data.users.forEach((user) => {
+          const tr = document.createElement('tr');
+          const role = user.role || 'user';
+          const status = user.status || 'active';
+          tr.innerHTML = `
+            <td>${user.displayName || user.username}</td>
+            <td><span class="badge">${role}</span></td>
+            <td>${status}</td>
+            <td>
+              <button data-user-id="${user.id}" data-role="moderator">تعيين كـ moderator</button>
+              <button data-user-id="${user.id}" data-ban="1">حظر</button>
+            </td>
+          `;
+
+          tr.querySelector('[data-role]').onclick = async () => {
+            await fetch(`/api/users/${user.id}/role`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ role: 'moderator' })
+            });
+            loadUsers();
+            loadOverview();
+          };
+
+          tr.querySelector('[data-ban]').onclick = async () => {
+            await fetch(`/api/users/${user.id}/ban`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ reason: 'إدارة' })
+            });
+            loadUsers();
+            loadOverview();
+          };
+
+          tbody.appendChild(tr);
+        });
+      }
+
+      loadOverview();
+      loadUsers();
+    </script>
+  </body>
+</html>
